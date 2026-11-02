@@ -1,6 +1,6 @@
-<div class="min-h-dvh bg-ink text-white lg:grid lg:grid-cols-[260px_1fr]">
+<div class="min-h-dvh bg-ink text-white lg:grid lg:h-dvh lg:grid-cols-[260px_1fr] lg:overflow-hidden">
   <aside
-    class="relative border-b border-white/10 bg-[#060e1a] lg:sticky lg:top-0 lg:h-dvh lg:overflow-hidden lg:border-b-0 lg:border-r"
+    class="relative border-b border-white/10 bg-[#060e1a] lg:h-full lg:overflow-hidden lg:border-b-0 lg:border-r"
   >
     <div
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,194,168,0.22),transparent_40%),radial-gradient(circle_at_90%_80%,rgba(255,77,109,0.14),transparent_35%)]"
@@ -54,13 +54,14 @@
     </div>
   </aside>
 
-  <div class="flex min-w-0 flex-col bg-ink-soft">
+  <div class="flex min-h-0 min-w-0 flex-col bg-ink-soft lg:overflow-hidden">
     <header
-      class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#0b1626]/90 px-5 py-4 backdrop-blur-xl"
+      class="sticky top-0 z-20 flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#0b1626]/90 px-5 py-4 backdrop-blur-xl lg:static"
     >
-      <div>
-        <p class="text-sm font-semibold">{{ auth.currentUser()?.fullName }}</p>
-        <p class="text-xs text-white/45">{{ auth.currentUser()?.email }}</p>
+      <div class="min-w-0">
+        <h2 class="font-display truncate text-xl font-semibold tracking-tight text-white">
+          {{ pageTitleKey() | t }}
+        </h2>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <app-lang-switcher tone="dark" />
@@ -74,7 +75,7 @@
       </div>
     </header>
 
-    <main class="flex-1 px-5 py-6 lg:px-8">
+    <main class="flex min-h-0 flex-1 flex-col px-5 py-6 lg:overflow-y-auto lg:px-8">
       <router-outlet />
     </main>
   </div>

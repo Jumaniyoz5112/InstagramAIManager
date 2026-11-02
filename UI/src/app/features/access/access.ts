@@ -11,7 +11,22 @@ import { AppIcon } from '../../shared/ui/icon';
 @Component({
   selector: 'app-access',
   imports: [AppIcon, TranslatePipe, FormsModule],
-  templateUrl: './access.html'
+  templateUrl: './access.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    @media (min-width: 1024px) {
+      :host {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+      }
+    }
+  `
 })
 export class AccessPage {
   private readonly accessApi = inject(AccessAdminService);

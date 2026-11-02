@@ -1,5 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map, startWith } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { navPages } from '../../core/access/page-access';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -9,12 +11,52 @@ import { LangSwitcher } from '../../shared/ui/lang-switcher';
 @Component({
   selector: 'app-main-layout',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, AppIcon, TranslatePipe, LangSwitcher],
-  templateUrl: './main-layout.html'
+  templateUrl: './main-layout.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    @media (min-width: 1024px) {
+      :host {
+        height: 100dvh;
+        overflow: hidden;
+      }
+    }
+  `
 })
 export class MainLayout {
+  private readonly router = inject(Router);
   protected readonly auth = inject(AuthService);
 
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map(() => this.router.url),
+      startWith(this.router.url)
+    ),
+    { initialValue: this.router.url }
+  );
+
   protected readonly pages = computed(() => navPages(this.auth.currentUser()));
+
+  protected readonly pageTitleKey = computed(() => {
+    const segment = this.currentUrl().split('?')[0]?.split('/').filter(Boolean).at(-1) ?? '';
+    switch (segment) {
+      case 'dashboard':
+        return 'page.DASHBOARD';
+      case 'tenants':
+        return 'page.TENANTS';
+      case 'workspaces':
+        return 'page.WORKSPACES';
+      case 'access':
+        return 'page.ACCESS';
+      case 'pending':
+        return 'pending.title';
+      default:
+        return 'brand.console';
+    }
+  });
 
   protected readonly activeWorkspaceName = computed(() => {
     const user = this.auth.currentUser();
