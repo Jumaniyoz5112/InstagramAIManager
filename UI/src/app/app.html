@@ -1,0 +1,55 @@
+<main class="shell">
+  <section class="hero">
+    <p class="eyebrow">UZ-EDUAI</p>
+    <h1>{{ title() }}</h1>
+    <p class="lead">
+      Angular frontend Spring Boot backend bilan bog‘langan. Holat quyida ko‘rsatiladi.
+    </p>
+
+    <div class="status-card" [attr.data-state]="backendStatus()">
+      <div class="status-row">
+        <span class="dot" aria-hidden="true"></span>
+        @switch (backendStatus()) {
+          @case ('loading') {
+            <strong>Backend tekshirilmoqda…</strong>
+          }
+          @case ('up') {
+            <strong>Backend ulangan</strong>
+          }
+          @default {
+            <strong>Backend ulanmagan</strong>
+          }
+        }
+      </div>
+
+      @if (health(); as h) {
+        <dl class="meta">
+          <div>
+            <dt>Service</dt>
+            <dd>{{ h.service }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{{ h.status }}</dd>
+          </div>
+          <div>
+            <dt>Database</dt>
+            <dd>{{ h.details['database'] || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd>{{ h.timestamp }}</dd>
+          </div>
+        </dl>
+      }
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+
+      <button type="button" class="retry" (click)="checkBackend()">Qayta tekirish</button>
+    </div>
+  </section>
+</main>
+
+<router-outlet />

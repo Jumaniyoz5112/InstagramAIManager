@@ -1,0 +1,42 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Env / secrets
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Java / Gradle
+BE/.gradle/
+BE/build/
+BE/out/
+BE/bin/
+*.class
+*.jar
+!BE/gradle/wrapper/gradle-wrapper.jar
+
+# Node / Angular
+UI/node_modules/
+UI/dist/
+UI/.angular/
+UI/tmp/
+npm-debug.log*
+
+# Python
+ai-service/.venv/
+ai-service/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Media / local storage uploads
+storage/**
+!storage/.gitkeep
+
+# Logs
+*.log
