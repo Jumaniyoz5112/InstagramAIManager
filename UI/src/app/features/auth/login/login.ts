@@ -19,7 +19,7 @@ export class LoginPage {
 
   protected readonly form = this.fb.nonNullable.group({
     email: ['admin@local.dev', [Validators.required, Validators.email]],
-    password: ['ChangeMe0110!', Validators.required]
+    password: ['0110', Validators.required]
   });
 
   protected submit(): void {

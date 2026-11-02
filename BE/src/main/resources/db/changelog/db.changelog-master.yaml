@@ -1,46 +1,5 @@
 databaseChangeLog:
-  - changeSet:
-      id: 001-health-ping
-      author: system
-      changes:
-        - createTable:
-            tableName: app_meta
-            columns:
-              - column:
-                  name: id
-                  type: BIGINT
-                  autoIncrement: true
-                  constraints:
-                    primaryKey: true
-                    nullable: false
-              - column:
-                  name: key
-                  type: VARCHAR(100)
-                  constraints:
-                    nullable: false
-                    unique: true
-              - column:
-                  name: value
-                  type: VARCHAR(500)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: created_at
-                  type: TIMESTAMP WITH TIME ZONE
-                  constraints:
-                    nullable: false
-        - insert:
-            tableName: app_meta
-            columns:
-              - column:
-                  name: key
-                  value: app_name
-              - column:
-                  name: value
-                  value: InstagramAIManager
-              - column:
-                  name: created_at
-                  valueComputed: CURRENT_TIMESTAMP
-
   - include:
-      file: db/changelog/changes/002-identity-tenant.yaml
+      file: db/changelog/changes/001-app-meta.sql
+  - include:
+      file: db/changelog/changes/002-identity-tenant.sql

@@ -25,7 +25,7 @@ class AuthFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"admin@local.dev","password":"ChangeMe0110!"}
+                                {"email":"admin@local.dev","password":"0110"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -51,7 +51,7 @@ class AuthFlowIntegrationTest {
         MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"admin@local.dev","password":"ChangeMe0110!"}
+                                {"email":"admin@local.dev","password":"0110"}
                                 """))
                 .andExpect(status().isOk())
                 .andReturn();

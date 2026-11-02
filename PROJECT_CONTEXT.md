@@ -31,10 +31,10 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | Media Management | to‘xtatilgan |
 | Instagram OAuth impl | to‘xtatilgan |
 
-### Bootstrap admin
+### Bootstrap admin (static, DB)
 
 - Email: `admin@local.dev` (env: `BOOTSTRAP_ADMIN_EMAIL`)
-- Password: `ChangeMe0110!` (env: `BOOTSTRAP_ADMIN_PASSWORD`)
+- Password: `0110` (env: `BOOTSTRAP_ADMIN_PASSWORD`) — startupda bazaga sync qilinadi
 - Demo tenant `demo` + Demo Workspace
 
 ### Auth contract

@@ -39,4 +39,4 @@ Foundation (JWT auth, tenant/workspace, Angular login/dashboard) **bajarilgan**.
 
 ## Bootstrap
 
-`admin@local.dev` / `ChangeMe0110!` (env bilan almashtiriladi)
+`admin@local.dev` / `0110` (env bilan almashtiriladi; startupda DB sync)

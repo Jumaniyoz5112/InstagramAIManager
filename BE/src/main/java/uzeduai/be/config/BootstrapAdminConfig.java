@@ -5,9 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import uzeduai.be.common.enums.PlatformRoleCode;
 import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.tenant.entity.Tenant;
@@ -39,7 +39,7 @@ public class BootstrapAdminConfig implements ApplicationRunner {
     @Value("${app.bootstrap.admin-email:admin@local.dev}")
     private String adminEmail;
 
-    @Value("${app.bootstrap.admin-password:ChangeMe0110!}")
+    @Value("${app.bootstrap.admin-password:0110}")
     private String adminPassword;
 
     @Value("${app.bootstrap.admin-name:Platform Admin}")
@@ -64,10 +64,6 @@ public class BootstrapAdminConfig implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (userRepository.existsByEmailIgnoreCase(adminEmail)) {
-            return;
-        }
-
         Role adminRole = roleRepository.findByCode(PlatformRoleCode.PLATFORM_ADMIN.name())
                 .orElseGet(() -> {
                     Role role = new Role();
@@ -77,30 +73,46 @@ public class BootstrapAdminConfig implements ApplicationRunner {
                     return roleRepository.save(role);
                 });
 
-        User user = new User();
-        user.setEmail(adminEmail.toLowerCase());
-        user.setFullName(adminName);
-        user.setPasswordHash(passwordEncoder.encode(adminPassword));
-        user.setEnabled(true);
-        user.setRoles(Set.of(adminRole));
-        userRepository.save(user);
+        User user = userRepository.findByEmailIgnoreCase(adminEmail).orElseGet(() -> {
+            User created = new User();
+            created.setEmail(adminEmail.toLowerCase());
+            created.setFullName(adminName);
+            created.setEnabled(true);
+            created.setRoles(Set.of(adminRole));
+            created.setPasswordHash(passwordEncoder.encode(adminPassword));
+            return userRepository.save(created);
+        });
 
-        Tenant tenant = new Tenant();
-        tenant.setName("Demo Tenant");
-        tenant.setSlug("demo");
-        tenantRepository.save(tenant);
+        // Local/static admin: keep password in sync with configured value
+        if (!passwordEncoder.matches(adminPassword, user.getPasswordHash())) {
+            user.setPasswordHash(passwordEncoder.encode(adminPassword));
+            userRepository.save(user);
+            log.info("Bootstrap admin paroli yangilandi: {}", adminEmail);
+        }
 
-        TenantMember member = new TenantMember();
-        member.setTenant(tenant);
-        member.setUser(user);
-        member.setRole(TenantRole.OWNER);
-        tenantMemberRepository.save(member);
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            user.setRoles(Set.of(adminRole));
+            userRepository.save(user);
+        }
 
-        Workspace workspace = new Workspace();
-        workspace.setTenant(tenant);
-        workspace.setName("Demo Workspace");
-        workspaceRepository.save(workspace);
+        if (!tenantRepository.existsBySlug("demo")) {
+            Tenant tenant = new Tenant();
+            tenant.setName("Demo Tenant");
+            tenant.setSlug("demo");
+            tenantRepository.save(tenant);
 
-        log.info("Bootstrap admin yaratildi: {} (parolni env orqali o‘zgartiring)", adminEmail);
+            TenantMember member = new TenantMember();
+            member.setTenant(tenant);
+            member.setUser(user);
+            member.setRole(TenantRole.OWNER);
+            tenantMemberRepository.save(member);
+
+            Workspace workspace = new Workspace();
+            workspace.setTenant(tenant);
+            workspace.setName("Demo Workspace");
+            workspaceRepository.save(workspace);
+        }
+
+        log.info("Static admin tayyor: {} / (app.bootstrap.admin-password)", adminEmail);
     }
 }
