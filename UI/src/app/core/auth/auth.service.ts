@@ -7,6 +7,7 @@ import {
   ApiResponse,
   AuthTokensResponse,
   LoginRequest,
+  RegisterRequest,
   UserResponse
 } from './auth.models';
 
@@ -23,6 +24,17 @@ export class AuthService {
   readonly accessToken = this.accessTokenSignal.asReadonly();
   readonly currentUser = this.userSignal.asReadonly();
   readonly isAuthenticated = computed(() => !!this.accessTokenSignal());
+
+  register(payload: RegisterRequest): Observable<UserResponse> {
+    return this.http
+      .post<ApiResponse<AuthTokensResponse>>(`${this.baseUrl}/auth/register`, payload, {
+        withCredentials: true
+      })
+      .pipe(
+        tap((res) => this.applySession(res.data)),
+        map((res) => res.data.user)
+      );
+  }
 
   login(payload: LoginRequest): Observable<UserResponse> {
     return this.http

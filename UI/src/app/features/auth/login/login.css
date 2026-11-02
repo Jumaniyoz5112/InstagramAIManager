@@ -59,3 +59,9 @@ button:disabled {
   margin: 0;
   color: #8f1f1f;
 }
+
+a {
+  color: #0f6b78;
+  text-decoration: none;
+  font-size: 0.9rem;
+}

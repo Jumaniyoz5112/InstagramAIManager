@@ -6,10 +6,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uzeduai.be.auth.dto.AuthTokensResponse;
 import uzeduai.be.auth.dto.LoginRequest;
+import uzeduai.be.auth.dto.RegisterRequest;
 import uzeduai.be.auth.entity.RefreshToken;
 import uzeduai.be.auth.repository.RefreshTokenRepository;
 import uzeduai.be.common.enums.TenantRole;
@@ -18,11 +20,15 @@ import uzeduai.be.security.jwt.JwtProperties;
 import uzeduai.be.security.jwt.JwtService;
 import uzeduai.be.security.user.CustomUserDetails;
 import uzeduai.be.tenant.dto.TenantSummaryResponse;
+import uzeduai.be.tenant.entity.Tenant;
+import uzeduai.be.tenant.entity.TenantMember;
 import uzeduai.be.tenant.repository.TenantMemberRepository;
+import uzeduai.be.tenant.repository.TenantRepository;
 import uzeduai.be.user.dto.UserResponse;
 import uzeduai.be.user.entity.User;
 import uzeduai.be.user.repository.UserRepository;
 import uzeduai.be.workspace.dto.WorkspaceResponse;
+import uzeduai.be.workspace.entity.Workspace;
 import uzeduai.be.workspace.repository.WorkspaceRepository;
 
 import java.nio.charset.StandardCharsets;
@@ -33,6 +39,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,7 +47,9 @@ import java.util.UUID;
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository;
     private final TenantMemberRepository tenantMemberRepository;
     private final WorkspaceRepository workspaceRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -51,7 +60,9 @@ public class AuthService {
 
     public AuthService(
             AuthenticationManager authenticationManager,
+            PasswordEncoder passwordEncoder,
             UserRepository userRepository,
+            TenantRepository tenantRepository,
             TenantMemberRepository tenantMemberRepository,
             WorkspaceRepository workspaceRepository,
             RefreshTokenRepository refreshTokenRepository,
@@ -60,13 +71,65 @@ public class AuthService {
             RefreshCookieService refreshCookieService
     ) {
         this.authenticationManager = authenticationManager;
+        this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
+        this.tenantRepository = tenantRepository;
         this.tenantMemberRepository = tenantMemberRepository;
         this.workspaceRepository = workspaceRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.refreshCookieService = refreshCookieService;
+    }
+
+    @Transactional
+    public AuthTokensResponse register(
+            RegisterRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        String email = request.email().trim().toLowerCase();
+        String slug = request.tenantSlug().trim().toLowerCase();
+
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Bu email allaqachon ro‘yxatdan o‘tgan");
+        }
+        if (tenantRepository.existsBySlug(slug)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Bu tenant slug band");
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setFullName(request.fullName().trim());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setEnabled(true);
+        user.setRoles(new HashSet<>());
+        userRepository.save(user);
+
+        Tenant tenant = new Tenant();
+        tenant.setName(request.tenantName().trim());
+        tenant.setSlug(slug);
+        tenantRepository.save(tenant);
+
+        TenantMember member = new TenantMember();
+        member.setTenant(tenant);
+        member.setUser(user);
+        member.setRole(TenantRole.OWNER);
+        tenantMemberRepository.save(member);
+
+        Workspace workspace = new Workspace();
+        workspace.setTenant(tenant);
+        workspace.setName("Default");
+        workspaceRepository.save(workspace);
+
+        return issueSession(
+                user,
+                tenant.getId(),
+                workspace.getId(),
+                TenantRole.OWNER,
+                httpRequest,
+                httpResponse
+        );
     }
 
     @Transactional
@@ -94,8 +157,15 @@ public class AuthService {
         User user = existing.getUser();
         existing.setRevokedAt(Instant.now());
 
-        // Preserve active context from current access token if present; otherwise null
-        return issueSession(user, null, null, null, httpRequest, httpResponse, existing);
+        return issueSession(
+                user,
+                existing.getTenantId(),
+                existing.getWorkspaceId(),
+                existing.getTenantRole(),
+                httpRequest,
+                httpResponse,
+                existing
+        );
     }
 
     @Transactional
@@ -177,6 +247,9 @@ public class AuthService {
             ua = ua.substring(0, 512);
         }
         refreshToken.setUserAgent(ua);
+        refreshToken.setTenantId(tenantId);
+        refreshToken.setWorkspaceId(workspaceId);
+        refreshToken.setTenantRole(tenantRole);
         refreshTokenRepository.save(refreshToken);
 
         if (previous != null) {

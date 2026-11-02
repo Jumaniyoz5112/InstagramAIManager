@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uzeduai.be.auth.dto.AuthTokensResponse;
 import uzeduai.be.auth.dto.LoginRequest;
+import uzeduai.be.auth.dto.RegisterRequest;
 import uzeduai.be.auth.service.AuthService;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.security.user.CustomUserDetails;
@@ -28,6 +29,15 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AuthTokensResponse>> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.register(request, httpRequest, httpResponse)));
     }
 
     @PostMapping("/login")

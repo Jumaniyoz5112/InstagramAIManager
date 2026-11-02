@@ -6,14 +6,15 @@ alwaysApply: true
 # Instagram AI Manager — Agent Rules
 
 Har doim `PROJECT_CONTEXT.md` ni o‘qi.
+Kundalik o‘zgarishlar: `.cursor/md/YYYY-MM-DD.md` (oxirgi sanani o‘qi).
 
 ## Mahsulot
 
-Multi-Tenant SaaS. `tenant_id` server membership’dan; client header’iga ishonilmaydi.
+Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client header’iga ishonilmaydi.
 
 ## Joriy holat
 
-Foundation (JWT auth, tenant/workspace, Angular login/dashboard) **bajarilgan**.
+**Backend Security + Authentication DONE** (JWT, refresh cookie+CSRF, register/login, tenant isolation tests).
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -25,18 +26,19 @@ Foundation (JWT auth, tenant/workspace, Angular login/dashboard) **bajarilgan**.
 
 ## Stack
 
-- `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be`, main: `InstagramAiManagerApplication`
-- `UI/`: Angular 22 standalone, feature-based
-- Access token: memory; Refresh: HttpOnly cookie; CSRF: XSRF-TOKEN
-- API: `/api/v1/...`; health: `/api/health`
-- Response: `{ success, data, message, timestamp }`
+- `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be`
+- Liquibase: **SQL** files under `db/changelog/changes/`
+- `UI/`: Angular 22, auth memory token, HttpOnly refresh, XSRF
+- API envelope: `{ success, data, message, timestamp }`
+
+## Auth
+
+- Access: memory; Refresh: `iam_refresh` HttpOnly + SHA-256 in DB + rotation
+- Roles: platform `PLATFORM_ADMIN`; tenant `OWNER|ADMIN|MEMBER`
+- Bootstrap: `admin@local.dev` / `0110`
 
 ## Ish tartibi
 
-1. Reja → tasdiq → kod  
-2. Mavjud kodni sababsiz buzma  
-3. Bosqich yakunida test + `PROJECT_CONTEXT.md` yangila  
-
-## Bootstrap
-
-`admin@local.dev` / `0110` (env bilan almashtiriladi; startupda DB sync)
+1. Audit → gap fill (takrorlama)  
+2. Build + test  
+3. `PROJECT_CONTEXT.md` yangila  

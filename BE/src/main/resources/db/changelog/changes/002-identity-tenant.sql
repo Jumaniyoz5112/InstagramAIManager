@@ -68,6 +68,9 @@ CREATE TABLE refresh_tokens (
     created_at              TIMESTAMPTZ   NOT NULL,
     ip_address              VARCHAR(64),
     user_agent              VARCHAR(512),
+    tenant_id               UUID,
+    workspace_id            UUID,
+    tenant_role             VARCHAR(20),
     CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 

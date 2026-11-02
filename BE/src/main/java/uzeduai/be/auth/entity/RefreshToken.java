@@ -2,6 +2,8 @@ package uzeduai.be.auth.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -10,6 +12,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.user.entity.User;
 
 import java.time.Instant;
@@ -48,6 +51,16 @@ public class RefreshToken {
 
     @Column(name = "user_agent", length = 512)
     private String userAgent;
+
+    @Column(name = "tenant_id")
+    private UUID tenantId;
+
+    @Column(name = "workspace_id")
+    private UUID workspaceId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tenant_role", length = 20)
+    private TenantRole tenantRole;
 
     @PrePersist
     void onCreate() {
