@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     List<Workspace> findByTenantIdOrderByCreatedAtAsc(UUID tenantId);
 
+    long countByTenantId(UUID tenantId);
+
     Optional<Workspace> findByIdAndTenantId(UUID id, UUID tenantId);
 
     @Query("""

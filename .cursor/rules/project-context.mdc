@@ -14,9 +14,10 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 
 ## Joriy holat
 
-**Auth Phase-1 security DONE** (C1/C2/H3/H4: profiles, secrets fail-fast, refresh reuse/family revoke, logout-by-cookie).
-**H2 TenantContext DONE** (per-request membership revalidation, soft-clear, scoped loads, isolation tests).
-**Hali ochiq (ruxsat bilan):** H1 Platform Admin tenant list.
+**Auth Phase-1 security DONE** (C1/C2/H3/H4).
+**H2 TenantContext DONE** (per-request membership revalidation, soft-clear, scoped loads).
+**H1 Platform Admin DONE** (read-only `/api/v1/platform/**`, role-only auth, no membership dependency).
+**Hali ochiq (ruxsat bilan):** Platform Admin UI; Media/Instagram/AI.
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -27,6 +28,7 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - Boot/Angular downgrade
 - `spring.liquibase.drop-first=true` asosiy/prod konfiguratsiyada
 - Production bootstrap admin / sync-password
+- Platform tenant block/delete/subscription mutatsiyalari (H1 faqat read-only)
 
 ## Stack
 
@@ -39,7 +41,7 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - API envelope: `{ success, data, messageKey, messageArgs, timestamp }`
 - i18n: uz (lotin) / ru / en — BE key, UI tarjima
 
-## Auth / Tenant
+## Auth / Tenant / Platform
 
 - Access: memory; Refresh: `iam_refresh` HttpOnly + SHA-256 + rotation
 - Reuse → family revoke (`RefreshTokenRevocationService` REQUIRES_NEW)
@@ -50,6 +52,7 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - Bootstrap: faqat local/dev/test — `admin@local.dev` / `0110`
 - JWT tenant/workspace claim’lar har requestda `TenantMembershipService` bilan DB’da qayta tekshiriladi
 - `TenantContextHolder` request `finally` da tozalanadi
+- `/api/v1/tenants` = membership; `/api/v1/platform/**` = PLATFORM_ADMIN inventory (TenantContext’siz)
 
 ## Ish tartibi
 

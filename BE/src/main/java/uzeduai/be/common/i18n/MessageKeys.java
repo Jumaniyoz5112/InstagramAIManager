@@ -29,6 +29,10 @@ public final class MessageKeys {
     public static final String WORKSPACE_TENANT_NOT_FOUND = "error.workspace.tenant_not_found";
     public static final String WORKSPACE_NOT_MEMBER = "error.workspace.not_member";
 
+    public static final String PLATFORM_TENANT_NOT_FOUND = "error.platform.tenant_not_found";
+    public static final String PLATFORM_INVALID_SORT = "error.platform.invalid_sort";
+    public static final String PLATFORM_INVALID_PAGE_SIZE = "error.platform.invalid_page_size";
+
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";
     public static final String VALIDATION_FAILED = "error.validation.failed";

@@ -4,9 +4,9 @@
 
 **Oxirgi yangilanish:** 2026-11-02  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth Phase-1 + H2 TenantContext isolation — **DONE**  
+**Joriy bosqich:** Auth Phase-1 + H2 TenantContext + H1 Platform Admin (read-only) — **DONE**  
 **To‘xtatilgan:** Media Management, Instagram publishing, AI Agent  
-**Keyingi (ruxsat bilan):** H1 Platform Admin tenant list  
+**Keyingi (ruxsat bilan):** Platform Admin UI; Media (ruxsat bilan)  
 
 ---
 
@@ -44,6 +44,19 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | H2 TenantContext + JWT claim revalidation per request | DONE |
 | Soft-clear revoked membership; hard-block tenant APIs | DONE |
 | Scoped workspace/tenant loads (no blind client IDs) | DONE |
+| H1 Platform Admin read-only `/api/v1/platform/**` | DONE |
+
+### Platform Admin (H1, read-only)
+
+- Namespace: `/api/v1/platform/**` — class `@PreAuthorize("hasRole('PLATFORM_ADMIN')")`
+- `GET /tenants` — pagination (`page`, `size` 1–100), search `q`, allowlisted sort (`createdAt|updatedAt|name|slug`)
+- `GET /tenants/{id}` — details + member/workspace counts
+- `GET /tenants/{id}/workspaces` — path tenantId scoped
+- `GET /tenants/{id}/members` — safe fields only: `userId`, `name`, `email`, `role`
+- `GET /stats` — tenant/user/workspace/membership counts
+- `PlatformAdminService` **does not** use `TenantMembershipService` / `TenantContextHolder`
+- `/api/v1/tenants` = membership list; `/api/v1/platform/tenants` = global inventory (ajratilgan)
+- Mutatsiyalar (block/delete/subscription) — **yo‘q**
 
 ### TenantContext (H2)
 
@@ -76,14 +89,15 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - API page gate: `/tenants`, `/workspaces`
 - Access API: `/api/v1/access/*` → faqat `PLATFORM_ADMIN`
 
-### Auth API
+### Auth / Tenant / Platform API
 
 - `POST /api/v1/auth/register|login|refresh|logout`
 - `GET /api/v1/auth/me` (ichida `pages[]`)
 - `POST /api/v1/auth/workspaces/{id}/activate`
 - Refresh/logout: CSRF required; logout permitAll (cookie bilan)
-- `GET/POST /api/v1/tenants`
-- `GET/POST /api/v1/workspaces?tenantId=`
+- `GET/POST /api/v1/tenants` — membership scoped
+- `GET/POST /api/v1/workspaces?tenantId=` — membership scoped
+- `GET /api/v1/platform/tenants|tenants/{id}|tenants/{id}/workspaces|tenants/{id}/members|stats`
 - `GET/PUT /api/v1/access/pages|users|users/{id}/pages`
 - `GET /api/health`
 
@@ -109,7 +123,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ## 4. Keyingi (ruxsat bilan)
 
-1. H1 — PLATFORM_ADMIN barcha tenantlarni ko‘ra olsin
+1. Platform Admin UI (`/app/platform/...`)
 2. Media Management
 3. Instagram OAuth
 4. AI modules
@@ -137,3 +151,4 @@ Batafsil kunlik jurnal: `.cursor/md/YYYY-MM-DD.md`
 | 2026-11-02 | i18n uz/ru/en — BE messageKey, UI tarjima |
 | 2026-11-02 | Phase-1 auth: C1 drop-first, C2 secrets, H3 refresh, H4 logout + tests |
 | 2026-11-02 | Phase-2 H2: TenantContext filter, membership revalidation, isolation tests |
+| 2026-11-02 | H1: read-only `/api/v1/platform/**` + PlatformAdminIntegrationTest |

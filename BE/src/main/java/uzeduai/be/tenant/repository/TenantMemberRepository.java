@@ -30,4 +30,14 @@ public interface TenantMemberRepository extends JpaRepository<TenantMember, UUID
             @Param("tenantId") UUID tenantId,
             @Param("userId") UUID userId
     );
+
+    @Query("""
+            select tm from TenantMember tm
+            join fetch tm.user
+            where tm.tenant.id = :tenantId
+            order by tm.createdAt asc
+            """)
+    List<TenantMember> findByTenantIdWithUser(@Param("tenantId") UUID tenantId);
+
+    long countByTenantId(UUID tenantId);
 }
