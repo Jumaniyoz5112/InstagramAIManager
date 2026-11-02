@@ -115,6 +115,8 @@ export const EN = {
   'error.auth.refresh_missing': 'Session not found',
   'error.auth.refresh_invalid': 'Invalid session',
   'error.auth.refresh_expired': 'Session expired',
+  'error.auth.refresh_reuse': 'Session revoked for security reasons',
+  'error.auth.user_disabled': 'Account is disabled',
   'error.auth.user_not_found': 'User not found',
   'error.auth.workspace_not_found': 'Workspace not found',
   'error.auth.workspace_forbidden': 'No access to this workspace',

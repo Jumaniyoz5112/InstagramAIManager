@@ -115,6 +115,8 @@ export const UZ = {
   'error.auth.refresh_missing': 'Sessiya topilmadi',
   'error.auth.refresh_invalid': 'Sessiya yaroqsiz',
   'error.auth.refresh_expired': 'Sessiya muddati tugagan',
+  'error.auth.refresh_reuse': 'Sessiya xavfsizlik sababli bekor qilindi',
+  'error.auth.user_disabled': 'Hisob o‘chirilgan',
   'error.auth.user_not_found': 'Foydalanuvchi topilmadi',
   'error.auth.workspace_not_found': 'Workspace topilmadi',
   'error.auth.workspace_forbidden': 'Bu workspace uchun ruxsat yo‘q',

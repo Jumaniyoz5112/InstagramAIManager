@@ -11,6 +11,8 @@ public final class MessageKeys {
     public static final String AUTH_REFRESH_MISSING = "error.auth.refresh_missing";
     public static final String AUTH_REFRESH_INVALID = "error.auth.refresh_invalid";
     public static final String AUTH_REFRESH_EXPIRED = "error.auth.refresh_expired";
+    public static final String AUTH_REFRESH_REUSE = "error.auth.refresh_reuse";
+    public static final String AUTH_USER_DISABLED = "error.auth.user_disabled";
     public static final String AUTH_USER_NOT_FOUND = "error.auth.user_not_found";
     public static final String AUTH_WORKSPACE_NOT_FOUND = "error.auth.workspace_not_found";
     public static final String AUTH_WORKSPACE_FORBIDDEN = "error.auth.workspace_forbidden";

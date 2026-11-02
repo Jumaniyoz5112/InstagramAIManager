@@ -115,6 +115,8 @@ export const RU = {
   'error.auth.refresh_missing': 'Сессия не найдена',
   'error.auth.refresh_invalid': 'Сессия недействительна',
   'error.auth.refresh_expired': 'Срок сессии истёк',
+  'error.auth.refresh_reuse': 'Сессия отозвана по соображениям безопасности',
+  'error.auth.user_disabled': 'Аккаунт отключён',
   'error.auth.user_not_found': 'Пользователь не найден',
   'error.auth.workspace_not_found': 'Workspace не найден',
   'error.auth.workspace_forbidden': 'Нет доступа к этому workspace',

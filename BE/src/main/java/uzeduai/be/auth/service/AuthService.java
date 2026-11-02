@@ -40,8 +40,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,6 +55,7 @@ public class AuthService {
     private final TenantMemberRepository tenantMemberRepository;
     private final WorkspaceRepository workspaceRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenRevocationService refreshTokenRevocationService;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final RefreshCookieService refreshCookieService;
@@ -69,6 +70,7 @@ public class AuthService {
             TenantMemberRepository tenantMemberRepository,
             WorkspaceRepository workspaceRepository,
             RefreshTokenRepository refreshTokenRepository,
+            RefreshTokenRevocationService refreshTokenRevocationService,
             JwtService jwtService,
             JwtProperties jwtProperties,
             RefreshCookieService refreshCookieService,
@@ -81,6 +83,7 @@ public class AuthService {
         this.tenantMemberRepository = tenantMemberRepository;
         this.workspaceRepository = workspaceRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenRevocationService = refreshTokenRevocationService;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.refreshCookieService = refreshCookieService;
@@ -155,20 +158,52 @@ public class AuthService {
         if (raw == null || raw.isBlank()) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_MISSING);
         }
-        RefreshToken existing = refreshTokenRepository.findByTokenHash(hash(raw))
+
+        String tokenHash = hash(raw);
+        Instant now = Instant.now();
+
+        RefreshToken existing = refreshTokenRepository.findByTokenHashWithUser(tokenHash)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_INVALID));
-        if (!existing.isActive()) {
+
+        User user = existing.getUser();
+
+        // Reuse of an already-revoked token → revoke the whole active family (committed)
+        if (existing.getRevokedAt() != null) {
+            refreshTokenRevocationService.revokeAllActiveForUser(user.getId());
+            refreshCookieService.clear(httpResponse);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_REUSE);
+        }
+
+        if (!existing.getExpiresAt().isAfter(now)) {
+            refreshTokenRevocationService.revokeTokenHash(tokenHash);
+            refreshCookieService.clear(httpResponse);
             throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_EXPIRED);
         }
 
-        User user = existing.getUser();
-        existing.setRevokedAt(Instant.now());
+        if (!user.isEnabled()) {
+            refreshTokenRevocationService.revokeAllActiveForUser(user.getId());
+            refreshCookieService.clear(httpResponse);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_USER_DISABLED);
+        }
+
+        // Atomic claim: only one parallel refresh wins; loser gets INVALID (no fork / no false reuse)
+        int claimed = refreshTokenRepository.markRevokedIfActive(tokenHash, now);
+        if (claimed != 1) {
+            refreshCookieService.clear(httpResponse);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_INVALID);
+        }
+
+        existing = refreshTokenRepository.findByTokenHashWithUser(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_INVALID));
+        user = existing.getUser();
+
+        SessionContext context = resolveSessionContext(user, existing.getTenantId(), existing.getWorkspaceId());
 
         return issueSession(
                 user,
-                existing.getTenantId(),
-                existing.getWorkspaceId(),
-                existing.getTenantRole(),
+                context.tenantId(),
+                context.workspaceId(),
+                context.tenantRole(),
                 httpRequest,
                 httpResponse,
                 existing
@@ -204,10 +239,9 @@ public class AuthService {
     public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         String raw = readRefreshCookie(httpRequest);
         if (raw != null && !raw.isBlank()) {
-            refreshTokenRepository.findByTokenHash(hash(raw)).ifPresent(token -> {
-                token.setRevokedAt(Instant.now());
-                refreshTokenRepository.save(token);
-            });
+            refreshTokenRepository.findByTokenHashWithUser(hash(raw)).ifPresent(token ->
+                    refreshTokenRevocationService.revokeAllActiveForUser(token.getUser().getId())
+            );
         }
         refreshCookieService.clear(httpResponse);
     }
@@ -275,6 +309,26 @@ public class AuthService {
         );
     }
 
+    private SessionContext resolveSessionContext(User user, UUID tenantId, UUID workspaceId) {
+        if (tenantId == null) {
+            return new SessionContext(null, null, null);
+        }
+
+        var membership = tenantMemberRepository.findByTenantIdAndUserId(tenantId, user.getId());
+        if (membership.isEmpty()) {
+            return new SessionContext(null, null, null);
+        }
+
+        TenantRole role = membership.get().getRole();
+        UUID resolvedWorkspaceId = null;
+        if (workspaceId != null) {
+            resolvedWorkspaceId = workspaceRepository.findByIdAndTenantId(workspaceId, tenantId)
+                    .map(Workspace::getId)
+                    .orElse(null);
+        }
+        return new SessionContext(tenantId, resolvedWorkspaceId, role);
+    }
+
     private UserResponse toUserResponse(User user, UUID tenantId, UUID workspaceId, TenantRole tenantRole) {
         List<String> platformRoles = user.getRoles().stream().map(r -> r.getCode()).toList();
         List<TenantSummaryResponse> tenants = tenantMemberRepository.findByUserIdWithTenant(user.getId()).stream()
@@ -334,5 +388,8 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private record SessionContext(UUID tenantId, UUID workspaceId, TenantRole tenantRole) {
     }
 }

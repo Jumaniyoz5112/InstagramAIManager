@@ -6,9 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class JwtProperties {
 
     /**
-     * HMAC secret — must come from env JWT_SECRET in non-local setups.
+     * HMAC secret from JWT_SECRET / profile config. No insecure default in code.
      */
-    private String secret = "dev-only-change-me-instagram-ai-manager-jwt-secret-32b";
+    private String secret = "";
     private long accessTokenTtlMinutes = 15;
     private long refreshTokenTtlDays = 14;
     private String refreshCookieName = "iam_refresh";

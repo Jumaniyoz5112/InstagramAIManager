@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +22,12 @@ import uzeduai.be.user.repository.UserRepository;
 import uzeduai.be.workspace.entity.Workspace;
 import uzeduai.be.workspace.repository.WorkspaceRepository;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
 @Component
+@ConditionalOnProperty(name = "app.bootstrap.enabled", havingValue = "true")
 public class BootstrapAdminConfig implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(BootstrapAdminConfig.class);
@@ -44,6 +47,9 @@ public class BootstrapAdminConfig implements ApplicationRunner {
 
     @Value("${app.bootstrap.admin-name:Platform Admin}")
     private String adminName;
+
+    @Value("${app.bootstrap.sync-password:false}")
+    private boolean syncPassword;
 
     public BootstrapAdminConfig(
             UserRepository userRepository,
@@ -78,21 +84,24 @@ public class BootstrapAdminConfig implements ApplicationRunner {
             created.setEmail(adminEmail.toLowerCase());
             created.setFullName(adminName);
             created.setEnabled(true);
-            created.setRoles(Set.of(adminRole));
+            created.setRoles(new HashSet<>(Set.of(adminRole)));
             created.setPasswordHash(passwordEncoder.encode(adminPassword));
             return userRepository.save(created);
         });
 
-        // Local/static admin: keep password in sync with configured value
-        if (!passwordEncoder.matches(adminPassword, user.getPasswordHash())) {
-            user.setPasswordHash(passwordEncoder.encode(adminPassword));
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            user.setRoles(new HashSet<>(Set.of(adminRole)));
             userRepository.save(user);
-            log.info("Bootstrap admin paroli yangilandi: {}", adminEmail);
+        } else if (user.getRoles().stream().noneMatch(r -> PlatformRoleCode.PLATFORM_ADMIN.name().equals(r.getCode()))) {
+            user.getRoles().add(adminRole);
+            userRepository.save(user);
         }
 
-        if (user.getRoles() == null || user.getRoles().isEmpty()) {
-            user.setRoles(Set.of(adminRole));
+        // Dev-only convenience: sync password when explicitly enabled
+        if (syncPassword && !passwordEncoder.matches(adminPassword, user.getPasswordHash())) {
+            user.setPasswordHash(passwordEncoder.encode(adminPassword));
             userRepository.save(user);
+            log.info("Bootstrap admin paroli yangilandi (sync-password=true): {}", adminEmail);
         }
 
         if (!tenantRepository.existsBySlug("demo")) {
@@ -113,6 +122,6 @@ public class BootstrapAdminConfig implements ApplicationRunner {
             workspaceRepository.save(workspace);
         }
 
-        log.info("Static admin tayyor: {} / (app.bootstrap.admin-password)", adminEmail);
+        log.info("Bootstrap admin ready: {}", adminEmail);
     }
 }

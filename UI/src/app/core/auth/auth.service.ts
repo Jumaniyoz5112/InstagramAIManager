@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
+import { Observable, catchError, finalize, map, shareReplay, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ApiResponse,
@@ -74,7 +74,6 @@ export class AuthService {
     return this.http
       .post<ApiResponse<null>>(`${this.baseUrl}/auth/logout`, {}, { withCredentials: true })
       .pipe(
-        catchError(() => of(null)),
         tap(() => {
           this.clearSession();
           void this.router.navigateByUrl('/auth/login');

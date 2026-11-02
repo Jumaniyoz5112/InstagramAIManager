@@ -14,7 +14,8 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 
 ## Joriy holat
 
-**Auth + Identity + Access DONE** (JWT, page grants, tenants/workspaces, Tailwind 4).
+**Auth Phase-1 security DONE** (C1/C2/H3/H4: profiles, secrets fail-fast, refresh reuse/family revoke, logout-by-cookie).
+**Hali ochiq (ruxsat bilan):** H1 Platform Admin tenant list, H2 TenantContext.
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -23,22 +24,29 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - AI Agent / Video Factory
 - Redis/Ollama o‘zgartirish
 - Boot/Angular downgrade
+- `spring.liquibase.drop-first=true` asosiy/prod konfiguratsiyada
+- Production bootstrap admin / sync-password
 
 ## Stack
 
 - `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be`
-- Liquibase: **SQL** files under `db/changelog/changes/`
+- Profiles: `dev` (default), `prod`, `test`
+- Liquibase: **SQL** under `db/changelog/changes/`; base `drop-first=false`
 - `UI/`: Angular 22 + Tailwind 4, auth memory token, HttpOnly refresh, XSRF
 - Routes: `/auth/*`, `/app/{dashboard,tenants,workspaces,access}`
-- Page access: admin `/app/access` orqali; PLATFORM_ADMIN hammasi ochiq
+- Page access: admin `/app/access`; PLATFORM_ADMIN hammasi ochiq
 - API envelope: `{ success, data, messageKey, messageArgs, timestamp }`
 - i18n: uz (lotin) / ru / en — BE key, UI tarjima
 
 ## Auth
 
-- Access: memory; Refresh: `iam_refresh` HttpOnly + SHA-256 in DB + rotation
+- Access: memory; Refresh: `iam_refresh` HttpOnly + SHA-256 + rotation
+- Reuse → family revoke (`RefreshTokenRevocationService` REQUIRES_NEW)
+- Parallel refresh: atomic `markRevokedIfActive` (fork yo‘q)
+- Logout: refresh cookie + CSRF; access token shart emas
+- Prod: `JWT_SECRET`, `DB_URL`/`DB_USER`/`DB_PASSWORD`, Secure cookie
 - Roles: platform `PLATFORM_ADMIN`; tenant `OWNER|ADMIN|MEMBER`
-- Bootstrap: `admin@local.dev` / `0110`
+- Bootstrap: faqat local/dev/test — `admin@local.dev` / `0110`
 
 ## Ish tartibi
 

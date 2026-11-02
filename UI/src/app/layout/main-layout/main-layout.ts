@@ -50,6 +50,10 @@ export class MainLayout {
   }
 
   protected logout(): void {
-    this.auth.logout().subscribe();
+    this.auth.logout().subscribe({
+      error: (err: unknown) => {
+        console.error('Logout failed', err);
+      }
+    });
   }
 }
