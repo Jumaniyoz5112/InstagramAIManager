@@ -1,8 +1,8 @@
 # Instagram Content Intelligence & AI Production — Architecture Plan
 
 **Status:** Audit + plan only (no implementation)  
-**Date:** 2026-11-02  
-**Constraint:** Do not modify Auth / TenantContext / Platform Admin / existing Liquibase / production deploy in this phase. Local-first.
+**Date:** 2026-11-02 (refined same day after peer review)  
+**Constraint:** Do not modify Auth / TenantContext / Platform Admin / existing Liquibase `001`–`003` / production deploy in this phase. Local-first.
 
 ---
 
@@ -72,9 +72,9 @@ Reason: every later feature (insights, AI analysis, knowledge base, publish feed
 uzeduai.be
   auth|tenant|workspace|access|platform|security|common   # EXISTING — leave alone
   instagram/
-    oauth/          # connect, callback, state, token refresh
-    account/        # linked IG professional accounts
-    media/          # synced posts, children (carousel)
+    oauth/          # connect, callback, state, long-lived token refresh cron
+    account/        # linked IG professional accounts (AES-GCM token attribute converter)
+    media/          # synced posts, children (carousel); refreshUrlIfExpired
     insights/       # latest + historical snapshots
     sync/           # historical + incremental sync orchestration
     publish/        # container create / publish / status
@@ -218,7 +218,12 @@ All domain tables include `tenant_id` (+ `workspace_id` where workspace-scoped).
 Typical readable fields for IG Media (confirm per API version):  
 `id`, `caption` (not on album children), `media_type` (`IMAGE` | `VIDEO` | `CAROUSEL_ALBUM`), `media_url`, `permalink`, `timestamp`, `thumbnail_url`, `children` edge for albums.
 
-**Do not assume:** private personal (non-professional) accounts; arbitrary story archive without Story-specific APIs/permissions; permanent CDN URLs (URLs expire — store reference + refresh strategy).
+**Do not assume:** private personal (non-professional) accounts; arbitrary story archive without Story-specific APIs/permissions; permanent CDN URLs.
+
+**CDN URL expiry (mandatory design):** Meta `media_url` / `thumbnail_url` are signed and expire (often → HTTP 403).  
+- Persist last known URL + `media_url_fetched_at`.  
+- Before UI hot-path failure, AI download, or publish staging: call `refreshUrlIfExpired` → `GET /{ig-media-id}?fields=media_url,thumbnail_url` and update row.  
+- For posts selected for AI / long-term studio use: optionally **cache binary** into object storage under `tenant/ws/ig-cache/{ig_media_id}/` so analysis does not depend on CDN TTL.
 
 ### 6.4 Publishing (documented capabilities)
 
@@ -398,17 +403,39 @@ Shared: `ai-service` FFmpeg/vision; **not** `instagram_media` tables.
 - State machine: `DRAFT` → `UPLOADING` → `CONTAINER_CREATED` → `PUBLISHING` → `PUBLISHED` | `FAILED`.  
 - On success: store returned IG media id; optionally enqueue sync/insights for that id.  
 - Enforce Meta’s publish rate limit client-side before call.  
-- Public HTTPS URL for media (local MinIO with tunnel/public bucket policy for dev).
+- **Public HTTPS URL (Meta crawls the file):** `localhost` / private MinIO is **not** reachable by Instagram.  
+  - Local M5: Cloudflare Tunnel, Ngrok, or temporary public S3/R2 object URL.  
+  - Dev docs must state this explicitly before first publish test.
+
+### 13.1 Long-lived token lifecycle
+
+Instagram User long-lived tokens are typically valid on the order of **~60 days** (confirm current Meta docs at impl time). If the user is idle, the token expires and sync/publish break.
+
+**Required jobs (M1+):**
+
+- Persist `token_expires_at` on `instagram_accounts`.  
+- Daily cron: accounts with expiry within **10 days** → call Meta refresh endpoint; update encrypted token + expiry.  
+- On `OAuthException` / invalid token during sync → set account status `NEEDS_REAUTH`; stop silent retries that burn rate limits.  
+- UI banner: “Instagram ulanishini yangilang”.
 
 ---
 
 ## 14. Background jobs & queue
 
-**Recommendation:** Redis + Spring worker (or dedicated worker process) using a simple queue library / Redis Streams. Compose already has Redis.
+**Recommendation (prefer concrete stack over hand-rolled Streams):**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **JobRunr** (Postgres or Redis) | Dashboard UI, retries, DLQ-ish failures, low boilerplate on Boot | Extra dependency; verify Spring Boot 4.1.2 compatibility before lock-in |
+| Spring + Redis Streams / listener | Already have Redis in Compose; fine-grained control | More DIY for dashboard/retry/DLQ |
+| In-process `@Scheduled` only | Simplest for M1 sync spike | Does not scale; weak for AI/video |
+
+**Decision for M0/M1:** prefer **JobRunr with PostgreSQL storage** for local simplicity (one less moving part than Redis Streams), keep Redis available for rate-limit counters / locks. Re-evaluate Redis-backed JobRunr or Streams if multi-instance workers appear.
 
 Job types:
 
 - `IG_HISTORICAL_SYNC`, `IG_INCREMENTAL_SYNC`  
+- `IG_TOKEN_REFRESH`  
 - `IG_INSIGHTS_SYNC`  
 - `CONTENT_ANALYSIS`  
 - `VIDEO_EDIT`  
@@ -417,10 +444,11 @@ Job types:
 
 Requirements:
 
-- Tenant/workspace/account on every payload  
-- Propagate Security/`TenantContext` carefully — prefer **re-resolve membership inside worker** from stored ids, do not trust ThreadLocal across threads without decorator  
+- Tenant/workspace/account **and acting userId** on every payload  
+- **Never trust HTTP `TenantContext` ThreadLocal in workers** — always re-load account/media by id and re-check `TenantMembershipService` (or equivalent) before side effects  
 - Idempotent handlers  
-- Visibility timeout + retry + DLQ  
+- Visibility timeout + retry + DLQ / failed-job UI  
+- Job payload must not contain raw access tokens (load from encrypted column inside worker)
 
 ---
 
@@ -481,7 +509,7 @@ Envelope remains `{ success, data, messageKey, messageArgs, timestamp }`.
 ## 17. Tenant isolation & security
 
 - Every query: `tenant_id` (+ workspace) from server membership / active context — never trust client headers for authz.  
-- Instagram tokens: AES-GCM (or envelope KMS later); key from env `IG_TOKEN_ENCRYPTION_KEY`; never log.  
+- Instagram tokens: **AES-GCM** via JPA `@Convert(converter = EncryptedStringConverter.class)` on `accessToken` (and refresh token if stored); key from env `IG_TOKEN_ENCRYPTION_KEY` (fail-fast in prod if missing); never log plaintext or ciphertext unnecessarily.  
 - OAuth `state`: random, single-use, bound to user+tenant+workspace, short TTL.  
 - AI service: mTLS or shared secret; accepts job ids; BE re-checks ownership before returning results.  
 - Object keys prefixed by tenant/workspace; signed URLs.  
@@ -506,26 +534,40 @@ Do not require live Meta calls in CI; use recorded fixtures.
 
 ## 19. Implementation roadmap (phased)
 
+### Liquibase split (do not dump all tables into one file)
+
+When coding starts, **new** SQL changelogs only (never edit `001`–`003`):
+
+| File | Phase | Tables |
+|------|-------|--------|
+| `004-instagram-core.sql` | M1 | `instagram_accounts`, `instagram_oauth_states`, `instagram_media`, `instagram_media_children`, `sync_jobs` |
+| `005-instagram-insights.sql` | M2 | `media_insight_latest`, `media_insight_snapshots` |
+| `006-content-analysis-kb.sql` | M3/M4 | `content_analyses`, `analysis_results`, `knowledge_documents`, plan tables as needed |
+| `007-studio-publish.sql` | M5/M6 | `customer_videos`, `video_edit_jobs`, `publish_jobs` (+ optional `ai_model_runs`) |
+
 ### Phase M0 — Foundations for media domain (prep)
 
-- Enable Redis for jobs carefully (feature-flagged)  
-- Object storage port + local backend  
-- New Liquibase **004+** for Instagram/content tables (when coding starts)  
+- Job runner spike (JobRunr + Postgres preferred) behind feature flag  
+- Object storage port + local/MinIO backend  
+- `EncryptedStringConverter` + prod fail-fast for `IG_TOKEN_ENCRYPTION_KEY`  
 - Page codes stub optional  
 
-**Acceptance:** Compose up; worker ping; storage write/read under tenant prefix; existing tests green.
+**Acceptance:** Compose up; sample job runs; storage write/read under tenant prefix; encryption round-trip unit test; existing Auth/H1/H2 tests green.
 
 ### Phase M1 — Instagram Connect + Media Sync (**START HERE**)
 
-- OAuth Instagram Login  
-- Encrypted accounts  
-- Historical + incremental sync  
+- Liquibase `004-instagram-core.sql`  
+- OAuth Instagram Login + CSRF state  
+- Encrypted accounts + `token_expires_at` + `IG_TOKEN_REFRESH` cron  
+- Historical + incremental sync (idempotent upsert)  
+- `refreshUrlIfExpired` helper  
 - Media list/detail UI  
 
-**Acceptance:** Link Business/Creator test account; posts appear without duplicates; carousel children stored; disconnect/reauth path defined; cross-tenant 403; no AI auto-queue.
+**Acceptance:** Link Business/Creator test account; posts appear without duplicates; carousel children stored; token refresh job updates expiry; NEEDS_REAUTH on invalid token; cross-tenant 403; no AI auto-queue.
 
 ### Phase M2 — Insights + history
 
+- Liquibase `005-instagram-insights.sql`  
 - Insights fetch job; snapshots + latest  
 - Sort/best posts  
 - Documented ER formula in UI  
@@ -534,13 +576,16 @@ Do not require live Meta calls in CI; use recorded fixtures.
 
 ### Phase M3 — Opt-in AI Analysis
 
+- Liquibase `006-…` analysis tables  
 - Analysis job + AI service image/video/caption  
 - Structured JSON persistence + model versions  
+- Optional IG media binary cache before vision  
 
 **Acceptance:** Only selected posts change status; failure isolation; result reload without re-calling AI; tenant isolation.
 
 ### Phase M4 — Knowledge Base v1 + Planning
 
+- Remainder of `006` plan/KB tables  
 - Documents from analyses + manual notes  
 - Brief → script generation using stored analyses  
 
@@ -548,10 +593,12 @@ Do not require live Meta calls in CI; use recorded fixtures.
 
 ### Phase M5 — Publishing + feedback loop
 
+- Liquibase `007-…` publish tables  
 - Publish job + idempotency  
+- Local public URL tunnel documented  
 - Post-publish insights + feedback analysis into knowledge  
 
-**Acceptance:** Double-submit safe; Meta limit respected; published id stored; feedback job updates KB for that tenant only.
+**Acceptance:** Double-submit safe; Meta limit respected; published id stored; feedback job updates KB for that tenant only; localhost publish failure is expected without tunnel.
 
 ### Phase M6 — Customer Studio (parallelizable after M3)
 
@@ -567,7 +614,9 @@ Do not require live Meta calls in CI; use recorded fixtures.
 |------|----------|------------|
 | App Review / permission denial | High | Design scopes minimally; feature-flag insights/publish |
 | Metric empty ≠ zero | High | Store NULL; UI “n/a” |
-| `media_url` expiry | High | Refresh before AI/publish; optional asset cache |
+| `media_url` expiry | High | `refreshUrlIfExpired`; optional object-storage cache for AI |
+| Long-lived token ~60d expiry | High | `token_expires_at` + refresh cron (T−10d); NEEDS_REAUTH |
+| Local publish needs public URL | High | Tunnel/Ngrok/R2; document before M5 |
 | Rate limits (platform + publish 100/24h) | High | Token bucket; sync backoff; publish quota UI |
 | Insights lag ~48h | Medium | Don’t alert “zero performance” too early |
 | Login-path metric differences | Medium | Record `api_surface` on snapshots |
@@ -584,19 +633,47 @@ Do not require live Meta calls in CI; use recorded fixtures.
 
 - Exact insight metric enum per media product for chosen API version  
 - Webhook availability for Instagram Login configuration  
-- Long-lived token refresh procedure for Instagram User tokens  
-- Whether Stories are in-scope for v1 (recommend **out of v1** unless required)
+- Exact long-lived token refresh HTTP contract for Instagram User tokens (endpoint + response fields)  
+- Whether Stories are in-scope for v1 (recommend **out of v1** unless required)  
+- JobRunr ↔ Spring Boot 4.1.2 compatibility matrix at M0 spike time  
 
 ---
 
 ## Complex / dangerous areas (call out)
 
-1. **OAuth + token encryption + reauth UX** — security critical.  
+1. **OAuth + AES-GCM token encryption + reauth UX** — security critical.  
 2. **Idempotent sync under pagination + rate limits** — data integrity.  
 3. **Insights semantics (views vs reach vs empty metrics)** — product trust.  
-4. **Publish idempotency + public URL staging** — duplicate posts / Meta bans.  
-5. **Async tenant isolation** — silent cross-tenant bugs.  
-6. **Video AI cost/latency** — can melt local Ollama/CPU if unbounded.
+4. **Publish idempotency + public URL staging (not localhost)** — duplicate posts / Meta bans.  
+5. **Async tenant isolation (no ThreadLocal trust)** — silent cross-tenant bugs.  
+6. **Video AI cost/latency** — can melt local Ollama/CPU if unbounded.  
+7. **CDN URL expiry without `refreshUrlIfExpired`** — broken UI/AI mid-flight.  
+8. **Token 60-day expiry without refresh cron** — silent sync death.
+
+---
+
+## 21. Peer review refinements (adopted)
+
+External review (Gemini) of this plan was assessed as **largely correct and aligned**. Adopted as plan norms:
+
+| Review point | Verdict | Plan action |
+|--------------|---------|-------------|
+| Modular monolith + stateless AI worker | Agree (already core) | Kept |
+| Opt-in AI only | Agree (already core) | Kept |
+| Instagram Login first | Agree (already core) | Kept |
+| NULL ≠ 0 for missing metrics | Agree (already core) | Kept |
+| Split `instagram` vs `mediaops` | Agree (already core) | Kept |
+| Latest + snapshots insights | Agree (already core) | Kept |
+| Unique `(tenant_id, ig_media_id)` | Agree (already core) | Kept |
+| Worker must re-check membership (no ThreadLocal) | Agree — critical | Strengthened §14 / risks |
+| CDN URL expiry + refresh/cache | Agree — critical | Added `refreshUrlIfExpired` + cache path |
+| Publish requires public URL (tunnel/R2) | Agree — critical for M5 | Strengthened §13 |
+| Long-lived token ~60d + refresh cron T−10d | Agree — was under-specified | Added §13.1 + `IG_TOKEN_REFRESH` |
+| Split Liquibase 004/005/006/007 by phase | Agree — better than one mega-004 | Adopted in §19 |
+| Prefer JobRunr over DIY Redis Streams | Agree as **default M0 choice**, with Boot 4 compatibility check | Adopted in §14 |
+| JPA `EncryptedStringConverter` AES-GCM | Agree — concrete pattern | Adopted in §17 |
+
+**Not adopted blindly:** declaring JobRunr mandatory without an M0 compatibility spike; inventing Meta fields beyond docs.
 
 ---
 
@@ -614,12 +691,16 @@ Do not require live Meta calls in CI; use recorded fixtures.
 
 - [ ] No change to Auth / H2 TenantContext / H1 Platform Admin contracts  
 - [ ] All new tables tenant-scoped; isolation tests added  
-- [ ] Tokens encrypted; absent from logs  
+- [ ] Tokens encrypted (AES-GCM converter); absent from logs  
+- [ ] Token refresh cron + NEEDS_REAUTH path  
 - [ ] Sync idempotent; AI not auto-started  
+- [ ] `refreshUrlIfExpired` (and optional IG cache for AI)  
 - [ ] Insights history retained; NULL for missing metrics  
 - [ ] Engagement formula versioned and documented  
-- [ ] Publish rate limits enforced  
+- [ ] Publish rate limits enforced; public URL strategy for local  
 - [ ] Studio module independent of IG sync tables  
+- [ ] Liquibase split by phase (`004`–`007`); never edit `001`–`003`  
+- [ ] Workers re-resolve membership; no ThreadLocal tenant trust  
 - [ ] Existing `./gradlew test` suite remains green  
 - [ ] Local Compose (Postgres + Redis) sufficient for M1–M2  
 
@@ -628,5 +709,6 @@ Do not require live Meta calls in CI; use recorded fixtures.
 ## Document control
 
 - This file is the architecture source for Instagram Content Intelligence.  
-- Implementation must open with **Phase M1** after explicit product permission (project rules currently forbid Media/Instagram/AI without approval).  
+- Implementation must open with **Phase M0 prep then M1** after explicit product permission (project rules currently forbid Media/Instagram/AI without approval).  
+- First coding step when approved: `004-instagram-core.sql` + `instagram/` package skeleton + encryption converter + OAuth/sync — not AI.  
 - Before coding M1, re-check Meta developer docs for the pinned Graph API version and update Section 6/8 metric tables with citation dates.
