@@ -1,0 +1,42 @@
+---
+description: Instagram AI Manager — SaaS multi-tenant arxitektura va ish tartibi
+alwaysApply: true
+---
+
+# Instagram AI Manager — Agent Rules
+
+Har doim `PROJECT_CONTEXT.md` ni o‘qi.
+
+## Mahsulot
+
+Multi-Tenant SaaS. `tenant_id` server membership’dan; client header’iga ishonilmaydi.
+
+## Joriy holat
+
+Foundation (JWT auth, tenant/workspace, Angular login/dashboard) **bajarilgan**.
+
+## Taqiqlangan (ruxsatsiz)
+
+- Media Management CRUD
+- Instagram OAuth/publishing
+- AI Agent / Video Factory
+- Redis/Ollama o‘zgartirish
+- Boot/Angular downgrade
+
+## Stack
+
+- `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be`, main: `InstagramAiManagerApplication`
+- `UI/`: Angular 22 standalone, feature-based
+- Access token: memory; Refresh: HttpOnly cookie; CSRF: XSRF-TOKEN
+- API: `/api/v1/...`; health: `/api/health`
+- Response: `{ success, data, message, timestamp }`
+
+## Ish tartibi
+
+1. Reja → tasdiq → kod  
+2. Mavjud kodni sababsiz buzma  
+3. Bosqich yakunida test + `PROJECT_CONTEXT.md` yangila  
+
+## Bootstrap
+
+`admin@local.dev` / `ChangeMe0110!` (env bilan almashtiriladi)

@@ -41,3 +41,6 @@ databaseChangeLog:
               - column:
                   name: created_at
                   valueComputed: CURRENT_TIMESTAMP
+
+  - include:
+      file: db/changelog/changes/002-identity-tenant.yaml

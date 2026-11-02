@@ -1,0 +1,30 @@
+<section class="panel">
+  <h1>Dashboard</h1>
+  <p>Multi-tenant foundation tayyor. Media va Instagram keyingi bosqichda.</p>
+
+  <dl>
+    <div>
+      <dt>API health</dt>
+      <dd>{{ health() }}</dd>
+    </div>
+    <div>
+      <dt>Tenant</dt>
+      <dd>{{ auth.currentUser()?.activeTenantId || '—' }}</dd>
+    </div>
+    <div>
+      <dt>Workspace</dt>
+      <dd>{{ auth.currentUser()?.activeWorkspaceId || '—' }}</dd>
+    </div>
+    <div>
+      <dt>Tenant role</dt>
+      <dd>{{ auth.currentUser()?.activeTenantRole || '—' }}</dd>
+    </div>
+  </dl>
+
+  <h2>Mening tenantlarim</h2>
+  <ul>
+    @for (t of auth.currentUser()?.tenants || []; track t.id) {
+      <li>{{ t.name }} ({{ t.role }})</li>
+    }
+  </ul>
+</section>

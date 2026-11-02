@@ -1,0 +1,26 @@
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">IAM</div>
+    <nav>
+      <a routerLink="/app/dashboard" routerLinkActive="active">Dashboard</a>
+    </nav>
+    <button type="button" class="logout" (click)="logout()">Chiqish</button>
+  </aside>
+
+  <div class="main">
+    <header class="header">
+      <div>
+        <strong>{{ auth.currentUser()?.fullName }}</strong>
+        <span>{{ auth.currentUser()?.email }}</span>
+      </div>
+      @if (auth.currentUser()?.activeWorkspaceId; as wsId) {
+        <div class="chip">Workspace: {{ wsId }}</div>
+      } @else {
+        <div class="chip warn">Workspace tanlanmagan</div>
+      }
+    </header>
+    <section class="content">
+      <router-outlet />
+    </section>
+  </div>
+</div>
