@@ -4,9 +4,9 @@
 
 **Oxirgi yangilanish:** 2026-11-02  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth Phase-1 security hardening (C1/C2/H3/H4) — **DONE**  
+**Joriy bosqich:** Auth Phase-1 + H2 TenantContext isolation — **DONE**  
 **To‘xtatilgan:** Media Management, Instagram publishing, AI Agent  
-**Keyingi (ruxsat bilan):** H1 Platform Admin tenant list, H2 TenantContext  
+**Keyingi (ruxsat bilan):** H1 Platform Admin tenant list  
 
 ---
 
@@ -41,6 +41,17 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | Platform ADMIN vs tenant OWNER/ADMIN/MEMBER | DONE |
 | Page-level Access (admin grants pages) | DONE |
 | Cross-tenant isolation tests | DONE |
+| H2 TenantContext + JWT claim revalidation per request | DONE |
+| Soft-clear revoked membership; hard-block tenant APIs | DONE |
+| Scoped workspace/tenant loads (no blind client IDs) | DONE |
+
+### TenantContext (H2)
+
+- `TenantContextFilter` (JWT filter’dan keyin): claim’larni `TenantMembershipService.resolve` bilan DB’da qayta tekshiradi
+- Soft-clear: membership yo‘q → autentifikatsiya saqlanadi, active tenant/workspace/role tozalanadi
+- `TenantContextHolder` ThreadLocal; har request `finally` da clear (async uchun TaskDecorator kerak bo‘ladi)
+- Client `tenantId` faqat membership orqali; workspace `findByIdAndTenantId`
+- Platform: `/access/**`; tenant-level: `/workspaces`; user membership list: `/tenants` (H1 yo‘q)
 
 ### Profiles / secrets
 
@@ -99,17 +110,16 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 ## 4. Keyingi (ruxsat bilan)
 
 1. H1 — PLATFORM_ADMIN barcha tenantlarni ko‘ra olsin
-2. H2 — TenantContext / isolation hardening
-3. Media Management
-4. Instagram OAuth
-5. AI modules
+2. Media Management
+3. Instagram OAuth
+4. AI modules
 
 ## 5. Qoidalar
 
 1. Media/Instagram/AI — ruxsatsiz yo‘q  
 2. Boot/Angular downgrade yo‘q  
 3. Secrets env’da; tokenlarni loglama  
-4. Tenant ID faqat server membership/JWT claim  
+4. Tenant ID faqat server-verified membership (`TenantContext`); JWT claim’lar har requestda qayta tekshiriladi  
 5. DB migration — SQL Liquibase; migration tarixini buzma / drop-first prod’da yo‘q  
 6. Yangi UI sahifa → `app_pages` + Access orqali ochiladi  
 
@@ -126,3 +136,4 @@ Batafsil kunlik jurnal: `.cursor/md/YYYY-MM-DD.md`
 | 2026-11-02 | Page Access control + professional auth UI |
 | 2026-11-02 | i18n uz/ru/en — BE messageKey, UI tarjima |
 | 2026-11-02 | Phase-1 auth: C1 drop-first, C2 secrets, H3 refresh, H4 logout + tests |
+| 2026-11-02 | Phase-2 H2: TenantContext filter, membership revalidation, isolation tests |

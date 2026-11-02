@@ -21,6 +21,8 @@ import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.security.jwt.JwtProperties;
 import uzeduai.be.security.jwt.JwtService;
 import uzeduai.be.security.user.CustomUserDetails;
+import uzeduai.be.tenant.context.ResolvedTenantContext;
+import uzeduai.be.tenant.context.TenantMembershipService;
 import uzeduai.be.tenant.dto.TenantSummaryResponse;
 import uzeduai.be.tenant.entity.Tenant;
 import uzeduai.be.tenant.entity.TenantMember;
@@ -60,6 +62,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final RefreshCookieService refreshCookieService;
     private final AccessService accessService;
+    private final TenantMembershipService tenantMembershipService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthService(
@@ -74,7 +77,8 @@ public class AuthService {
             JwtService jwtService,
             JwtProperties jwtProperties,
             RefreshCookieService refreshCookieService,
-            AccessService accessService
+            AccessService accessService,
+            TenantMembershipService tenantMembershipService
     ) {
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
@@ -88,6 +92,7 @@ public class AuthService {
         this.jwtProperties = jwtProperties;
         this.refreshCookieService = refreshCookieService;
         this.accessService = accessService;
+        this.tenantMembershipService = tenantMembershipService;
     }
 
     @Transactional
@@ -197,7 +202,8 @@ public class AuthService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_INVALID));
         user = existing.getUser();
 
-        SessionContext context = resolveSessionContext(user, existing.getTenantId(), existing.getWorkspaceId());
+        ResolvedTenantContext context = tenantMembershipService.resolve(
+                user.getId(), existing.getTenantId(), existing.getWorkspaceId());
 
         return issueSession(
                 user,
@@ -219,15 +225,19 @@ public class AuthService {
     ) {
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_USER_NOT_FOUND));
-        var workspace = workspaceRepository.findById(workspaceId)
+
+        Workspace discovered = workspaceRepository.findByIdWithTenant(workspaceId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, MessageKeys.AUTH_WORKSPACE_NOT_FOUND));
-        var membership = tenantMemberRepository
-                .findByTenantIdAndUserId(workspace.getTenant().getId(), user.getId())
+        UUID tenantId = discovered.getTenant().getId();
+
+        var membership = tenantMemberRepository.findByTenantIdAndUserIdWithTenant(tenantId, user.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, MessageKeys.AUTH_WORKSPACE_FORBIDDEN));
+
+        Workspace workspace = tenantMembershipService.requireWorkspaceInTenant(workspaceId, tenantId);
 
         return issueSession(
                 user,
-                workspace.getTenant().getId(),
+                tenantId,
                 workspace.getId(),
                 membership.getRole(),
                 httpRequest,
@@ -309,26 +319,6 @@ public class AuthService {
         );
     }
 
-    private SessionContext resolveSessionContext(User user, UUID tenantId, UUID workspaceId) {
-        if (tenantId == null) {
-            return new SessionContext(null, null, null);
-        }
-
-        var membership = tenantMemberRepository.findByTenantIdAndUserId(tenantId, user.getId());
-        if (membership.isEmpty()) {
-            return new SessionContext(null, null, null);
-        }
-
-        TenantRole role = membership.get().getRole();
-        UUID resolvedWorkspaceId = null;
-        if (workspaceId != null) {
-            resolvedWorkspaceId = workspaceRepository.findByIdAndTenantId(workspaceId, tenantId)
-                    .map(Workspace::getId)
-                    .orElse(null);
-        }
-        return new SessionContext(tenantId, resolvedWorkspaceId, role);
-    }
-
     private UserResponse toUserResponse(User user, UUID tenantId, UUID workspaceId, TenantRole tenantRole) {
         List<String> platformRoles = user.getRoles().stream().map(r -> r.getCode()).toList();
         List<TenantSummaryResponse> tenants = tenantMemberRepository.findByUserIdWithTenant(user.getId()).stream()
@@ -390,6 +380,4 @@ public class AuthService {
         }
     }
 
-    private record SessionContext(UUID tenantId, UUID workspaceId, TenantRole tenantRole) {
-    }
 }

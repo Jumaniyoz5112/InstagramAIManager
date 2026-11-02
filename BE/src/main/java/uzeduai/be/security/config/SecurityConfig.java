@@ -19,6 +19,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import uzeduai.be.security.handler.RestAccessDeniedHandler;
 import uzeduai.be.security.handler.RestAuthenticationEntryPoint;
 import uzeduai.be.security.jwt.JwtAuthenticationFilter;
+import uzeduai.be.tenant.context.TenantContextFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +40,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            TenantContextFilter tenantContextFilter,
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler
     ) throws Exception {
@@ -82,7 +84,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(tenantContextFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

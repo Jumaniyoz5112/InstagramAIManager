@@ -19,4 +19,15 @@ public interface TenantMemberRepository extends JpaRepository<TenantMember, UUID
     List<TenantMember> findByUserIdWithTenant(@Param("userId") UUID userId);
 
     Optional<TenantMember> findByTenantIdAndUserId(UUID tenantId, UUID userId);
+
+    @Query("""
+            select tm from TenantMember tm
+            join fetch tm.tenant
+            where tm.tenant.id = :tenantId
+              and tm.user.id = :userId
+            """)
+    Optional<TenantMember> findByTenantIdAndUserIdWithTenant(
+            @Param("tenantId") UUID tenantId,
+            @Param("userId") UUID userId
+    );
 }

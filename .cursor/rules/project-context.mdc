@@ -15,7 +15,8 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 ## Joriy holat
 
 **Auth Phase-1 security DONE** (C1/C2/H3/H4: profiles, secrets fail-fast, refresh reuse/family revoke, logout-by-cookie).
-**Hali ochiq (ruxsat bilan):** H1 Platform Admin tenant list, H2 TenantContext.
+**H2 TenantContext DONE** (per-request membership revalidation, soft-clear, scoped loads, isolation tests).
+**Hali ochiq (ruxsat bilan):** H1 Platform Admin tenant list.
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -38,7 +39,7 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - API envelope: `{ success, data, messageKey, messageArgs, timestamp }`
 - i18n: uz (lotin) / ru / en — BE key, UI tarjima
 
-## Auth
+## Auth / Tenant
 
 - Access: memory; Refresh: `iam_refresh` HttpOnly + SHA-256 + rotation
 - Reuse → family revoke (`RefreshTokenRevocationService` REQUIRES_NEW)
@@ -47,6 +48,8 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - Prod: `JWT_SECRET`, `DB_URL`/`DB_USER`/`DB_PASSWORD`, Secure cookie
 - Roles: platform `PLATFORM_ADMIN`; tenant `OWNER|ADMIN|MEMBER`
 - Bootstrap: faqat local/dev/test — `admin@local.dev` / `0110`
+- JWT tenant/workspace claim’lar har requestda `TenantMembershipService` bilan DB’da qayta tekshiriladi
+- `TenantContextHolder` request `finally` da tozalanadi
 
 ## Ish tartibi
 
