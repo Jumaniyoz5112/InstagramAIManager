@@ -1,11 +1,15 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { pageGuard } from './core/access/page.guard';
+import { AuthService } from './core/auth/auth.service';
+import { firstAllowedPath } from './core/access/page-access';
 
 export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'app/dashboard'
+    redirectTo: 'app'
   },
   {
     path: 'auth',
@@ -29,11 +33,43 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/main-layout/main-layout').then((m) => m.MainLayout),
     children: [
       {
+        path: '',
+        pathMatch: 'full',
+        canActivate: [
+          () => {
+            const auth = inject(AuthService);
+            const router = inject(Router);
+            return router.createUrlTree([firstAllowedPath(auth.currentUser())]);
+          }
+        ],
+        loadComponent: () => import('./features/pending/pending').then((m) => m.PendingPage)
+      },
+      {
+        path: 'pending',
+        loadComponent: () => import('./features/pending/pending').then((m) => m.PendingPage)
+      },
+      {
         path: 'dashboard',
+        canActivate: [pageGuard('DASHBOARD')],
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage)
       },
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' }
+      {
+        path: 'tenants',
+        canActivate: [pageGuard('TENANTS')],
+        loadComponent: () => import('./features/tenants/tenants').then((m) => m.TenantsPage)
+      },
+      {
+        path: 'workspaces',
+        canActivate: [pageGuard('WORKSPACES')],
+        loadComponent: () =>
+          import('./features/workspaces/workspaces').then((m) => m.WorkspacesPage)
+      },
+      {
+        path: 'access',
+        canActivate: [pageGuard('ACCESS')],
+        loadComponent: () => import('./features/access/access').then((m) => m.AccessPage)
+      }
     ]
   },
-  { path: '**', redirectTo: 'app/dashboard' }
+  { path: '**', redirectTo: 'app' }
 ];

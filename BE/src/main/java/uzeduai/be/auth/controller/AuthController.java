@@ -15,6 +15,7 @@ import uzeduai.be.auth.dto.AuthTokensResponse;
 import uzeduai.be.auth.dto.LoginRequest;
 import uzeduai.be.auth.dto.RegisterRequest;
 import uzeduai.be.auth.service.AuthService;
+import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.security.user.CustomUserDetails;
 import uzeduai.be.user.dto.UserResponse;
@@ -63,7 +64,7 @@ public class AuthController {
             HttpServletResponse httpResponse
     ) {
         authService.logout(httpRequest, httpResponse);
-        return ResponseEntity.ok(ApiResponse.okMessage("Chiqlildi"));
+        return ResponseEntity.ok(ApiResponse.ok(null, MessageKeys.AUTH_LOGOUT_OK));
     }
 
     @GetMapping("/me")

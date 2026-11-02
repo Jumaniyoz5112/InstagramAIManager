@@ -1,0 +1,76 @@
+<section class="space-y-6">
+  <div>
+    <p class="text-xs font-bold uppercase tracking-[0.16em] text-accent">{{ 'tenants.eyebrow' | t }}</p>
+    <h2 class="font-display mt-2 text-3xl font-semibold tracking-tight text-white">{{ 'tenants.title' | t }}</h2>
+    <p class="mt-2 max-w-2xl text-sm text-white/55">{{ 'tenants.subtitle' | t }}</p>
+  </div>
+
+  <div class="grid gap-5 lg:grid-cols-[360px_1fr]">
+    <form class="surface-card p-5" [formGroup]="form" (ngSubmit)="create()">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="text-accent-2"><app-icon name="plus" /></span>
+        <h3 class="font-display text-lg font-semibold text-white">{{ 'tenants.new' | t }}</h3>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="tenantName">{{ 'field.name' | t }}</label>
+          <input id="tenantName" class="field" type="text" formControlName="name" />
+        </div>
+        <div>
+          <label class="label" for="tenantSlug">{{ 'field.slug' | t }}</label>
+          <input
+            id="tenantSlug"
+            class="field"
+            type="text"
+            formControlName="slug"
+            placeholder="acme-brand"
+          />
+        </div>
+      </div>
+
+      <button class="btn-primary mt-5 w-full" type="submit" [disabled]="saving()">
+        {{ saving() ? ('action.saving' | t) : ('action.create' | t) }}
+      </button>
+    </form>
+
+    <div class="surface-card p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="font-display text-lg font-semibold text-white">{{ 'tenants.list' | t }}</h3>
+        <button type="button" class="btn-ghost !px-3 !py-1.5 text-xs" (click)="reload()">
+          {{ 'action.refresh' | t }}
+        </button>
+      </div>
+
+      @if (error()) {
+        <p class="mb-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+          {{ error() }}
+        </p>
+      }
+
+      @if (loading()) {
+        <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+      } @else {
+        <ul class="space-y-3">
+          @for (t of tenants(); track t.id) {
+            <li class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3">
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-white">{{ t.name }}</p>
+                <p class="truncate text-xs text-white/45">{{ t.slug }}</p>
+              </div>
+              <span
+                class="shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+              >
+                {{ t.role }}
+              </span>
+            </li>
+          } @empty {
+            <li class="rounded-xl border border-dashed border-white/12 px-4 py-10 text-center text-sm text-white/45">
+              {{ 'tenants.empty' | t }}
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</section>

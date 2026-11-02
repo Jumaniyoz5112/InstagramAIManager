@@ -1,26 +1,81 @@
-<div class="layout">
-  <aside class="sidebar">
-    <div class="brand">IAM</div>
-    <nav>
-      <a routerLink="/app/dashboard" routerLinkActive="active">Dashboard</a>
-    </nav>
-    <button type="button" class="logout" (click)="logout()">Chiqish</button>
+<div class="min-h-dvh bg-ink text-white lg:grid lg:grid-cols-[260px_1fr]">
+  <aside
+    class="relative border-b border-white/10 bg-[#060e1a] lg:sticky lg:top-0 lg:h-dvh lg:overflow-hidden lg:border-b-0 lg:border-r"
+  >
+    <div
+      class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,194,168,0.22),transparent_40%),radial-gradient(circle_at_90%_80%,rgba(255,77,109,0.14),transparent_35%)]"
+    ></div>
+
+    <div class="relative flex h-full flex-col px-5 py-6">
+      <div class="mb-8">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-2">{{ 'brand.console' | t }}</p>
+        <h1 class="font-display mt-2 text-2xl font-semibold tracking-tight">IAM</h1>
+        <p class="mt-1 text-sm text-white/50">{{ 'brand.name' | t }}</p>
+      </div>
+
+      <nav class="space-y-1.5">
+        @for (page of pages(); track page.code) {
+          <a
+            [routerLink]="page.path"
+            routerLinkActive="bg-white/10 text-white"
+            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/60 transition hover:bg-white/6 hover:text-white"
+          >
+            <app-icon [name]="iconFor(page.code)" />
+            {{ pageLabelKey(page.code) | t }}
+          </a>
+        }
+      </nav>
+
+      <div class="mt-auto space-y-4 pt-8">
+        <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm">
+          <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+            {{ 'nav.active_context' | t }}
+          </p>
+          <p class="mt-2 font-semibold">{{ activeTenantName() || ('nav.no_tenant' | t) }}</p>
+          <p class="text-white/55">{{ activeWorkspaceName() || ('nav.no_workspace' | t) }}</p>
+          @if (auth.currentUser()?.activeTenantRole; as role) {
+            <span
+              class="mt-3 inline-flex rounded-lg bg-accent-2/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent-2"
+            >
+              {{ role }}
+            </span>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-xl border border-white/12 px-4 py-2.5 text-sm font-semibold text-white/75 transition hover:bg-white/6 hover:text-white"
+          (click)="logout()"
+        >
+          <app-icon name="logout" [size]="16" />
+          {{ 'nav.logout' | t }}
+        </button>
+      </div>
+    </div>
   </aside>
 
-  <div class="main">
-    <header class="header">
+  <div class="flex min-w-0 flex-col bg-ink-soft">
+    <header
+      class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[#0b1626]/90 px-5 py-4 backdrop-blur-xl"
+    >
       <div>
-        <strong>{{ auth.currentUser()?.fullName }}</strong>
-        <span>{{ auth.currentUser()?.email }}</span>
+        <p class="text-sm font-semibold">{{ auth.currentUser()?.fullName }}</p>
+        <p class="text-xs text-white/45">{{ auth.currentUser()?.email }}</p>
       </div>
-      @if (auth.currentUser()?.activeWorkspaceId; as wsId) {
-        <div class="chip">Workspace: {{ wsId }}</div>
-      } @else {
-        <div class="chip warn">Workspace tanlanmagan</div>
-      }
+      <div class="flex flex-wrap items-center gap-2">
+        <app-lang-switcher tone="dark" />
+        @for (role of auth.currentUser()?.platformRoles || []; track role) {
+          <span
+            class="rounded-lg border border-accent/25 bg-accent/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent"
+          >
+            {{ role }}
+          </span>
+        }
+      </div>
     </header>
-    <section class="content">
+
+    <main class="flex-1 px-5 py-6 lg:px-8">
       <router-outlet />
-    </section>
+    </main>
   </div>
 </div>

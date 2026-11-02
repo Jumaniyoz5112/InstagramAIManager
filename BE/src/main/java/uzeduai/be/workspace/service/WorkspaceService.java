@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.common.exception.ApiException;
+import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.tenant.repository.TenantMemberRepository;
 import uzeduai.be.tenant.repository.TenantRepository;
 import uzeduai.be.workspace.dto.CreateWorkspaceRequest;
@@ -44,10 +45,10 @@ public class WorkspaceService {
     public WorkspaceResponse create(UUID userId, CreateWorkspaceRequest request) {
         var membership = requireMembership(request.tenantId(), userId);
         if (membership.getRole() == TenantRole.MEMBER) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Workspace yaratish uchun ruxsat yo‘q");
+            throw new ApiException(HttpStatus.FORBIDDEN, MessageKeys.WORKSPACE_CREATE_FORBIDDEN);
         }
         var tenant = tenantRepository.findById(request.tenantId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant topilmadi"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, MessageKeys.WORKSPACE_TENANT_NOT_FOUND));
 
         Workspace workspace = new Workspace();
         workspace.setTenant(tenant);
@@ -58,6 +59,6 @@ public class WorkspaceService {
 
     private uzeduai.be.tenant.entity.TenantMember requireMembership(UUID tenantId, UUID userId) {
         return tenantMemberRepository.findByTenantIdAndUserId(tenantId, userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Tenant a’zosi emassiz"));
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, MessageKeys.WORKSPACE_NOT_MEMBER));
     }
 }

@@ -1,40 +1,59 @@
-<form class="card" [formGroup]="form" (ngSubmit)="submit()">
-  <p class="eyebrow">Instagram AI Manager</p>
-  <h1>Ro‘yxatdan o‘tish</h1>
-  <p class="hint">Yangi tenant va default workspace avtomatik yaratiladi.</p>
+<form class="glass-card p-7 text-ink" [formGroup]="form" (ngSubmit)="submit()">
+  <p class="text-xs font-bold uppercase tracking-[0.16em] text-accent">{{ 'auth.register.eyebrow' | t }}</p>
+  <h2 class="font-display mt-2 text-3xl font-semibold tracking-tight">{{ 'auth.register.title' | t }}</h2>
+  <p class="mt-2 text-sm text-ink/60">{{ 'auth.register.subtitle' | t }}</p>
 
-  <label>
-    To‘liq ism
-    <input type="text" formControlName="fullName" autocomplete="name" />
-  </label>
-
-  <label>
-    Email
-    <input type="email" formControlName="email" autocomplete="username" />
-  </label>
-
-  <label>
-    Parol
-    <input type="password" formControlName="password" autocomplete="new-password" />
-  </label>
-
-  <label>
-    Tenant nomi
-    <input type="text" formControlName="tenantName" />
-  </label>
-
-  <label>
-    Tenant slug
-    <input type="text" formControlName="tenantSlug" placeholder="my-company" />
-  </label>
+  <div class="mt-6 grid gap-4">
+    <div>
+      <label class="label" for="fullName">{{ 'field.full_name' | t }}</label>
+      <input id="fullName" class="field" type="text" formControlName="fullName" />
+    </div>
+    <div>
+      <label class="label" for="email">{{ 'field.email' | t }}</label>
+      <input id="email" class="field" type="email" formControlName="email" autocomplete="username" />
+    </div>
+    <div>
+      <label class="label" for="password">{{ 'field.password' | t }}</label>
+      <input
+        id="password"
+        class="field"
+        type="password"
+        formControlName="password"
+        autocomplete="new-password"
+      />
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="label" for="tenantName">{{ 'field.tenant_name' | t }}</label>
+        <input id="tenantName" class="field" type="text" formControlName="tenantName" />
+      </div>
+      <div>
+        <label class="label" for="tenantSlug">{{ 'field.tenant_slug' | t }}</label>
+        <input
+          id="tenantSlug"
+          class="field"
+          type="text"
+          formControlName="tenantSlug"
+          placeholder="my-brand"
+        />
+      </div>
+    </div>
+  </div>
 
   @if (error()) {
-    <p class="error">{{ error() }}</p>
+    <p class="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+      {{ error() }}
+    </p>
   }
 
-  <button type="submit" [disabled]="loading()">
-    {{ loading() ? 'Kutilmoqda…' : 'Register' }}
+  <button class="btn-primary mt-6 w-full" type="submit" [disabled]="loading()">
+    {{ loading() ? ('auth.register.loading' | t) : ('auth.register.submit' | t) }}
   </button>
 
-  <a routerLink="/auth/login">Allaqachon akkaunt bormi? Kirish</a>
+  <a
+    routerLink="/auth/login"
+    class="mt-4 block text-center text-sm font-semibold text-ink/70 transition hover:text-ink"
+  >
+    {{ 'auth.register.to_login' | t }}
+  </a>
 </form>

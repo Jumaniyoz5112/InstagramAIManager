@@ -14,7 +14,7 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 
 ## Joriy holat
 
-**Backend Security + Authentication DONE** (JWT, refresh cookie+CSRF, register/login, tenant isolation tests).
+**Auth + Identity + Access DONE** (JWT, page grants, tenants/workspaces, Tailwind 4).
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -28,8 +28,11 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 
 - `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be`
 - Liquibase: **SQL** files under `db/changelog/changes/`
-- `UI/`: Angular 22, auth memory token, HttpOnly refresh, XSRF
-- API envelope: `{ success, data, message, timestamp }`
+- `UI/`: Angular 22 + Tailwind 4, auth memory token, HttpOnly refresh, XSRF
+- Routes: `/auth/*`, `/app/{dashboard,tenants,workspaces,access}`
+- Page access: admin `/app/access` orqali; PLATFORM_ADMIN hammasi ochiq
+- API envelope: `{ success, data, messageKey, messageArgs, timestamp }`
+- i18n: uz (lotin) / ru / en — BE key, UI tarjima
 
 ## Auth
 

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import uzeduai.be.access.service.AccessService;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.security.user.CustomUserDetails;
 import uzeduai.be.workspace.dto.CreateWorkspaceRequest;
@@ -23,9 +24,11 @@ import java.util.UUID;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+    private final AccessService accessService;
 
-    public WorkspaceController(WorkspaceService workspaceService) {
+    public WorkspaceController(WorkspaceService workspaceService, AccessService accessService) {
         this.workspaceService = workspaceService;
+        this.accessService = accessService;
     }
 
     @GetMapping
@@ -33,6 +36,7 @@ public class WorkspaceController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam UUID tenantId
     ) {
+        accessService.requirePage(principal, "WORKSPACES");
         return ResponseEntity.ok(ApiResponse.ok(workspaceService.listForUserTenant(principal.getId(), tenantId)));
     }
 
@@ -41,6 +45,7 @@ public class WorkspaceController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @Valid @RequestBody CreateWorkspaceRequest request
     ) {
+        accessService.requirePage(principal, "WORKSPACES");
         return ResponseEntity.ok(ApiResponse.ok(workspaceService.create(principal.getId(), request)));
     }
 }

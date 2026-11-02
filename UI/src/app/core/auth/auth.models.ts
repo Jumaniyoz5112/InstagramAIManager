@@ -1,8 +1,18 @@
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
-  message: string | null;
+  messageKey: string | null;
+  messageArgs?: string[] | null;
   timestamp: string;
+}
+
+export interface PageAccess {
+  code: string;
+  name: string;
+  description: string | null;
+  path: string;
+  sortOrder: number;
+  adminOnly: boolean;
 }
 
 export interface UserResponse {
@@ -15,6 +25,7 @@ export interface UserResponse {
   activeTenantRole: 'OWNER' | 'ADMIN' | 'MEMBER' | null;
   tenants: TenantSummary[];
   workspaces: WorkspaceSummary[];
+  pages: PageAccess[];
 }
 
 export interface TenantSummary {

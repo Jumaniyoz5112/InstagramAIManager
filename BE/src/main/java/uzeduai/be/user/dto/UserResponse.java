@@ -1,5 +1,6 @@
 package uzeduai.be.user.dto;
 
+import uzeduai.be.access.dto.PageAccessResponse;
 import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.tenant.dto.TenantSummaryResponse;
 import uzeduai.be.workspace.dto.WorkspaceResponse;
@@ -16,6 +17,7 @@ public record UserResponse(
         UUID activeWorkspaceId,
         TenantRole activeTenantRole,
         List<TenantSummaryResponse> tenants,
-        List<WorkspaceResponse> workspaces
+        List<WorkspaceResponse> workspaces,
+        List<PageAccessResponse> pages
 ) {
 }

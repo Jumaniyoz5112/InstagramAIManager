@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import uzeduai.be.access.service.AccessService;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.security.user.CustomUserDetails;
 import uzeduai.be.tenant.dto.CreateTenantRequest;
@@ -21,15 +22,18 @@ import java.util.List;
 public class TenantController {
 
     private final TenantService tenantService;
+    private final AccessService accessService;
 
-    public TenantController(TenantService tenantService) {
+    public TenantController(TenantService tenantService, AccessService accessService) {
         this.tenantService = tenantService;
+        this.accessService = accessService;
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<TenantSummaryResponse>>> list(
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
+        accessService.requirePage(principal, "TENANTS");
         return ResponseEntity.ok(ApiResponse.ok(tenantService.listForUser(principal.getId())));
     }
 
@@ -38,6 +42,7 @@ public class TenantController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @Valid @RequestBody CreateTenantRequest request
     ) {
+        accessService.requirePage(principal, "TENANTS");
         return ResponseEntity.ok(ApiResponse.ok(tenantService.create(principal.getId(), request)));
     }
 }

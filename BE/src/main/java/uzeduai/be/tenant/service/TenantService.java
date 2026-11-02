@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.common.exception.ApiException;
+import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.tenant.dto.CreateTenantRequest;
 import uzeduai.be.tenant.dto.TenantSummaryResponse;
 import uzeduai.be.tenant.entity.Tenant;
@@ -55,10 +56,10 @@ public class TenantService {
     public TenantSummaryResponse create(UUID userId, CreateTenantRequest request) {
         String slug = request.slug().trim().toLowerCase();
         if (tenantRepository.existsBySlug(slug)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Bu slug band");
+            throw new ApiException(HttpStatus.CONFLICT, MessageKeys.TENANT_SLUG_TAKEN);
         }
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Foydalanuvchi topilmadi"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.TENANT_USER_NOT_FOUND));
 
         Tenant tenant = new Tenant();
         tenant.setName(request.name().trim());

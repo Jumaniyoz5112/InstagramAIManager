@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-app-meta.sql
   - include:
       file: db/changelog/changes/002-identity-tenant.sql
+  - include:
+      file: db/changelog/changes/003-app-pages.sql

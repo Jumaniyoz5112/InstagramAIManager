@@ -1,0 +1,94 @@
+<section class="space-y-6">
+  <div>
+    <p class="text-xs font-bold uppercase tracking-[0.16em] text-accent-2">{{ 'workspaces.eyebrow' | t }}</p>
+    <h2 class="font-display mt-2 text-3xl font-semibold tracking-tight text-white">{{ 'workspaces.title' | t }}</h2>
+    <p class="mt-2 max-w-2xl text-sm text-white/55">{{ 'workspaces.subtitle' | t }}</p>
+  </div>
+
+  <div class="grid gap-5 lg:grid-cols-[360px_1fr]">
+    <form class="surface-card p-5" [formGroup]="form" (ngSubmit)="create()">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="text-accent"><app-icon name="plus" /></span>
+        <h3 class="font-display text-lg font-semibold text-white">{{ 'workspaces.new' | t }}</h3>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label" for="tenantId">{{ 'field.tenant' | t }}</label>
+          <select
+            id="tenantId"
+            class="field"
+            formControlName="tenantId"
+            (change)="onTenantChange(form.controls.tenantId.value)"
+          >
+            <option value="" disabled>{{ 'field.select' | t }}</option>
+            @for (t of auth.currentUser()?.tenants || []; track t.id) {
+              <option [value]="t.id">{{ t.name }} ({{ t.role }})</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="label" for="workspaceName">{{ 'field.name' | t }}</label>
+          <input id="workspaceName" class="field" type="text" formControlName="name" />
+        </div>
+      </div>
+
+      <button class="btn-primary mt-5 w-full" type="submit" [disabled]="saving()">
+        {{ saving() ? ('action.saving' | t) : ('action.create' | t) }}
+      </button>
+    </form>
+
+    <div class="surface-card p-5">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h3 class="font-display text-lg font-semibold text-white">{{ 'workspaces.list' | t }}</h3>
+        <button
+          type="button"
+          class="btn-ghost !px-3 !py-1.5 text-xs"
+          (click)="loadWorkspaces(form.controls.tenantId.value)"
+        >
+          {{ 'action.refresh' | t }}
+        </button>
+      </div>
+
+      @if (error()) {
+        <p class="mb-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+          {{ error() }}
+        </p>
+      }
+
+      @if (loading()) {
+        <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+      } @else {
+        <ul class="space-y-3">
+          @for (w of workspaces(); track w.id) {
+            <li class="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3">
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-white">{{ w.name }}</p>
+              </div>
+              @if (auth.currentUser()?.activeWorkspaceId === w.id) {
+                <span
+                  class="inline-flex shrink-0 items-center gap-1 rounded-lg bg-accent-2/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent-2"
+                >
+                  <app-icon name="check" [size]="12" />
+                  {{ 'dashboard.active' | t }}
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs"
+                  (click)="activate(w.id)"
+                >
+                  {{ 'action.activate' | t }}
+                </button>
+              }
+            </li>
+          } @empty {
+            <li class="rounded-xl border border-dashed border-white/12 px-4 py-10 text-center text-sm text-white/45">
+              {{ 'workspaces.empty' | t }}
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</section>

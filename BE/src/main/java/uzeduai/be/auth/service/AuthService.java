@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uzeduai.be.access.service.AccessService;
 import uzeduai.be.auth.dto.AuthTokensResponse;
 import uzeduai.be.auth.dto.LoginRequest;
 import uzeduai.be.auth.dto.RegisterRequest;
@@ -16,6 +17,7 @@ import uzeduai.be.auth.entity.RefreshToken;
 import uzeduai.be.auth.repository.RefreshTokenRepository;
 import uzeduai.be.common.enums.TenantRole;
 import uzeduai.be.common.exception.ApiException;
+import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.security.jwt.JwtProperties;
 import uzeduai.be.security.jwt.JwtService;
 import uzeduai.be.security.user.CustomUserDetails;
@@ -56,6 +58,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final RefreshCookieService refreshCookieService;
+    private final AccessService accessService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthService(
@@ -68,7 +71,8 @@ public class AuthService {
             RefreshTokenRepository refreshTokenRepository,
             JwtService jwtService,
             JwtProperties jwtProperties,
-            RefreshCookieService refreshCookieService
+            RefreshCookieService refreshCookieService,
+            AccessService accessService
     ) {
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
@@ -80,6 +84,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.refreshCookieService = refreshCookieService;
+        this.accessService = accessService;
     }
 
     @Transactional
@@ -92,10 +97,10 @@ public class AuthService {
         String slug = request.tenantSlug().trim().toLowerCase();
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Bu email allaqachon ro‘yxatdan o‘tgan");
+            throw new ApiException(HttpStatus.CONFLICT, MessageKeys.AUTH_EMAIL_TAKEN);
         }
         if (tenantRepository.existsBySlug(slug)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Bu tenant slug band");
+            throw new ApiException(HttpStatus.CONFLICT, MessageKeys.AUTH_TENANT_SLUG_TAKEN);
         }
 
         User user = new User();
@@ -122,6 +127,8 @@ public class AuthService {
         workspace.setName("Default");
         workspaceRepository.save(workspace);
 
+        accessService.grantDefaultPages(user);
+
         return issueSession(
                 user,
                 tenant.getId(),
@@ -138,7 +145,7 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.email().trim().toLowerCase(), request.password())
         );
         User user = userRepository.findByEmailIgnoreCase(request.email().trim())
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Email yoki parol noto‘g‘ri"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_INVALID_CREDENTIALS));
         return issueSession(user, null, null, null, httpRequest, httpResponse);
     }
 
@@ -146,12 +153,12 @@ public class AuthService {
     public AuthTokensResponse refresh(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         String raw = readRefreshCookie(httpRequest);
         if (raw == null || raw.isBlank()) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token topilmadi");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_MISSING);
         }
         RefreshToken existing = refreshTokenRepository.findByTokenHash(hash(raw))
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token yaroqsiz"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_INVALID));
         if (!existing.isActive()) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token bekor qilingan yoki muddati tugagan");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_REFRESH_EXPIRED);
         }
 
         User user = existing.getUser();
@@ -176,12 +183,12 @@ public class AuthService {
             HttpServletResponse httpResponse
     ) {
         User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Foydalanuvchi topilmadi"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_USER_NOT_FOUND));
         var workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Workspace topilmadi"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, MessageKeys.AUTH_WORKSPACE_NOT_FOUND));
         var membership = tenantMemberRepository
                 .findByTenantIdAndUserId(workspace.getTenant().getId(), user.getId())
-                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Bu workspace uchun ruxsat yo‘q"));
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, MessageKeys.AUTH_WORKSPACE_FORBIDDEN));
 
         return issueSession(
                 user,
@@ -208,7 +215,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public UserResponse me(CustomUserDetails principal) {
         User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Foydalanuvchi topilmadi"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_USER_NOT_FOUND));
         return toUserResponse(user, principal.getTenantId(), principal.getWorkspaceId(), principal.getTenantRole());
     }
 
@@ -295,7 +302,8 @@ public class AuthService {
                 workspaceId,
                 tenantRole,
                 tenants,
-                workspaces
+                workspaces,
+                accessService.resolvePages(user)
         );
     }
 
