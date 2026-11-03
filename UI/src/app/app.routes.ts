@@ -68,6 +68,12 @@ export const routes: Routes = [
         path: 'access',
         canActivate: [pageGuard('ACCESS')],
         loadComponent: () => import('./features/access/access').then((m) => m.AccessPage)
+      },
+      {
+        path: 'instagram',
+        canActivate: [pageGuard('INSTAGRAM')],
+        loadComponent: () =>
+          import('./features/instagram/instagram').then((m) => m.InstagramPage)
       }
     ]
   },

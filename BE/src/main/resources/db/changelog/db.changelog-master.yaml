@@ -1,7 +1,9 @@
 databaseChangeLog:
   - include:
-      file: db/changelog/changes/001-app-meta.sql
+      file: db/changelog/changes/001-create-app-meta.sql
   - include:
-      file: db/changelog/changes/002-identity-tenant.sql
+      file: db/changelog/changes/002-create-identity-and-tenant.sql
   - include:
-      file: db/changelog/changes/003-app-pages.sql
+      file: db/changelog/changes/003-create-app-pages-access.sql
+  - include:
+      file: db/changelog/changes/004-create-instagram-core.sql

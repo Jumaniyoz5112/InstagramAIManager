@@ -1,8 +1,9 @@
 --liquibase formatted sql
 
---changeset system:001-health-ping
+--changeset system:001-health-ping logicalFilePath:db/changelog/changes/001-app-meta.sql
 --preconditions onFail:MARK_RAN onError:HALT
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_meta'
+
 CREATE TABLE app_meta (
     id          BIGSERIAL PRIMARY KEY,
     key         VARCHAR(100)  NOT NULL UNIQUE,

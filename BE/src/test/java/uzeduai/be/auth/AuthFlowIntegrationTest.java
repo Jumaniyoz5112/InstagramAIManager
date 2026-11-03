@@ -32,7 +32,7 @@ class AuthFlowIntegrationTest {
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.user.email").value("admin@local.dev"))
                 .andExpect(jsonPath("$.data.user.pages").isArray())
-                .andExpect(jsonPath("$.data.user.pages.length()").value(4));
+                .andExpect(jsonPath("$.data.user.pages.length()").value(5));
     }
 
     @Test

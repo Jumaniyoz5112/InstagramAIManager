@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset system:002-identity-tenant
+--changeset system:002-identity-tenant logicalFilePath:db/changelog/changes/002-identity-tenant.sql
 --preconditions onFail:MARK_RAN onError:HALT
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'
 

@@ -9,6 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProductionSecurityFailFastTest {
 
+    private static final String VALID_CRYPTO =
+            "prod-test-crypto-key-instagram-ai-manager-ok32";
+
     @Test
     void productionFailsFastWhenJwtSecretMissing() {
         Exception ex = assertThrows(Exception.class, () -> new SpringApplicationBuilder(InstagramAiManagerApplication.class)
@@ -19,11 +22,13 @@ class ProductionSecurityFailFastTest {
                         "DB_URL=jdbc:postgresql://localhost:5432/InstagramAIManager",
                         "DB_USER=postgres",
                         "DB_PASSWORD=0110",
-                        "CORS_ALLOWED_ORIGINS=http://localhost:4200",
-                        // Force empty regardless of host JWT_SECRET env
-                        "app.security.jwt.secret="
+                        "CORS_ALLOWED_ORIGINS=http://localhost:4200"
                 )
-                .run());
+                // Command-line args beat OS env / profile placeholders
+                .run(
+                        "--app.security.jwt.secret=",
+                        "--IG_TOKEN_ENCRYPTION_KEY=" + VALID_CRYPTO
+                ));
 
         assertTrue(
                 containsMessage(ex, "JWT_SECRET")
@@ -44,10 +49,12 @@ class ProductionSecurityFailFastTest {
                         "DB_URL=jdbc:postgresql://localhost:5432/InstagramAIManager",
                         "DB_USER=postgres",
                         "DB_PASSWORD=0110",
-                        "CORS_ALLOWED_ORIGINS=http://localhost:4200",
-                        "JWT_SECRET=dev-only-change-me-instagram-ai-manager-jwt-secret-32b"
+                        "CORS_ALLOWED_ORIGINS=http://localhost:4200"
                 )
-                .run());
+                .run(
+                        "--JWT_SECRET=dev-only-change-me-instagram-ai-manager-jwt-secret-32b",
+                        "--IG_TOKEN_ENCRYPTION_KEY=" + VALID_CRYPTO
+                ));
 
         assertTrue(
                 containsMessage(ex, "Production must not use the development JWT secret"),

@@ -51,6 +51,8 @@ export class MainLayout {
         return 'page.WORKSPACES';
       case 'access':
         return 'page.ACCESS';
+      case 'instagram':
+        return 'page.INSTAGRAM';
       case 'pending':
         return 'pending.title';
       default:
@@ -86,6 +88,8 @@ export class MainLayout {
         return 'workspaces';
       case 'ACCESS':
         return 'shield';
+      case 'INSTAGRAM':
+        return 'instagram';
       default:
         return 'dashboard';
     }

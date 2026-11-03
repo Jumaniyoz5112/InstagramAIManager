@@ -102,11 +102,13 @@ app/
   api/           # analyze-image, analyze-video, transcribe, edit-plan, render
   ffmpeg/
   vision/
-  llm/           # Ollama/Qwen adapters
+  llm/           # LlmPort: local Ollama/Qwen + optional cloud (e.g. Claude) for customer-facing Uzbek text
   schemas/       # Pydantic contracts matching BE DTOs
 ```
 
 BE owns multi-tenant authorization and persistence; AI service is **stateless worker** called with pre-authorized job payloads (tenantId in payload for logging only; never trusted for auth).
+
+**Local GPU rule (8 GB class laptops):** global AI concurrency **= 1** (vision and LLM must not run in parallel on the same VRAM). Tenant-level limits are additional, not a substitute.
 
 ---
 
@@ -314,10 +316,11 @@ User selects one or more posts → `POST /analyses` → status `QUEUED` only for
 
 1. Resolve media + membership; load/refresh `media_url` if needed.  
 2. Image: download → vision prompt → structured JSON.  
-3. Video/Reel: AI service FFmpeg sample frames (interval / scene detect) → vision per keyframe → optional ASR transcription → merge LLM summarization.  
+3. Video/Reel: FFmpeg sample **8–12 keyframes max** → vision (batched) → **one** LLM merge call. ASR/Whisper transcription is **optional** (`transcript: null` allowed); do not hard-require for Uzbek/Russian Reels where ASR quality is weak.  
 4. Caption: NLP/LLM extract hashtags, CTA, tone.  
 5. Persist `analysis_results` jsonb + model/prompt versions; set media `ANALYZED` / `FAILED`.  
-6. Optionally emit `knowledge_documents` derived summary (tenant-scoped).
+6. Optionally emit `knowledge_documents` derived summary (tenant-scoped).  
+7. GPU queue: **global concurrency 1** on single-GPU hosts.
 
 ### 9.3 Result schema (v1)
 
@@ -343,9 +346,11 @@ User selects one or more posts → `POST /analyses` → status `QUEUED` only for
 
 ### 9.4 Cost control
 
-- Max concurrent analyses per tenant.  
+- Max concurrent analyses per tenant **and** global GPU slot = 1 on local.  
+- Cap video keyframes (8–12); batch into a single LLM summarization call.  
 - Reuse existing `ANALYZED` result unless `force=true`.  
-- Do not re-send full library to LLM for every plan — use stored JSON + knowledge docs.
+- Do not re-send full library to LLM for every plan — use stored JSON + knowledge docs.  
+- **Dual LLM:** local model for bulk analysis; optional cloud `LlmPort` (e.g. Claude) for customer-facing Uzbek copy (captions, inbox replies) when quality matters.
 
 ---
 
@@ -430,7 +435,11 @@ Instagram User long-lived tokens are typically valid on the order of **~60 days*
 | Spring + Redis Streams / listener | Already have Redis in Compose; fine-grained control | More DIY for dashboard/retry/DLQ |
 | In-process `@Scheduled` only | Simplest for M1 sync spike | Does not scale; weak for AI/video |
 
-**Decision for M0/M1:** prefer **JobRunr with PostgreSQL storage** for local simplicity (one less moving part than Redis Streams), keep Redis available for rate-limit counters / locks. Re-evaluate Redis-backed JobRunr or Streams if multi-instance workers appear.
+**Revised decision (keep M1 thin):**
+
+- **M1–M2:** `sync_jobs` table + Spring `@Scheduled` / simple executor is enough. No JobRunr, no Redis requirement, no MinIO requirement.  
+- **M3+ (AI / video / inbox heavy work):** introduce JobRunr (Postgres) after Boot 4.1.2 compatibility spike; Redis optional for locks/rate limits.  
+- Local media cache for M1: filesystem under `storage/{tenant}/{workspace}/…` via a thin `StoragePort`; MinIO later if needed.
 
 Job types:
 
@@ -543,66 +552,70 @@ When coding starts, **new** SQL changelogs only (never edit `001`–`003`):
 | `004-instagram-core.sql` | M1 | `instagram_accounts`, `instagram_oauth_states`, `instagram_media`, `instagram_media_children`, `sync_jobs` |
 | `005-instagram-insights.sql` | M2 | `media_insight_latest`, `media_insight_snapshots` |
 | `006-content-analysis-kb.sql` | M3/M4 | `content_analyses`, `analysis_results`, `knowledge_documents`, plan tables as needed |
-| `007-studio-publish.sql` | M5/M6 | `customer_videos`, `video_edit_jobs`, `publish_jobs` (+ optional `ai_model_runs`) |
+| `007-instagram-inbox.sql` | M3.5 | webhook events, comments/DMs, reply drafts/jobs (see §22) |
+| `008-studio-publish.sql` | M5/M6 | `customer_videos`, `video_edit_jobs`, `publish_jobs`, optional `ai_model_runs` |
 
-### Phase M0 — Foundations for media domain (prep)
+### Phase M0 — Thin prep (do not overbuild)
 
-- Job runner spike (JobRunr + Postgres preferred) behind feature flag  
-- Object storage port + local/MinIO backend  
-- `EncryptedStringConverter` + prod fail-fast for `IG_TOKEN_ENCRYPTION_KEY`  
-- Page codes stub optional  
+- `EncryptedStringConverter` + fail-fast `IG_TOKEN_ENCRYPTION_KEY` in prod  
+- Thin `StoragePort` + **local filesystem** under `storage/` (MinIO later)  
+- **No** JobRunr / Redis wiring required for M1  
 
-**Acceptance:** Compose up; sample job runs; storage write/read under tenant prefix; encryption round-trip unit test; existing Auth/H1/H2 tests green.
+**Acceptance:** encryption round-trip unit test; storage write/read under tenant prefix; existing Auth/H1/H2 tests green.
 
 ### Phase M1 — Instagram Connect + Media Sync (**START HERE**)
 
 - Liquibase `004-instagram-core.sql`  
 - OAuth Instagram Login + CSRF state  
-- Encrypted accounts + `token_expires_at` + `IG_TOKEN_REFRESH` cron  
-- Historical + incremental sync (idempotent upsert)  
+- Encrypted accounts + `token_expires_at` + scheduled token refresh  
+- Historical + incremental sync via `@Scheduled` + `sync_jobs` rows  
 - `refreshUrlIfExpired` helper  
 - Media list/detail UI  
+- Meta App in **Development** mode + tester account (App Review only when onboarding external customers)  
 
-**Acceptance:** Link Business/Creator test account; posts appear without duplicates; carousel children stored; token refresh job updates expiry; NEEDS_REAUTH on invalid token; cross-tenant 403; no AI auto-queue.
+**Acceptance:** Link Business/Creator test account; posts appear without duplicates; carousel children stored; token refresh updates expiry; NEEDS_REAUTH on invalid token; cross-tenant 403; no AI auto-queue.
 
 ### Phase M2 — Insights + history
 
 - Liquibase `005-instagram-insights.sql`  
+- **First step:** verify metric names per media product for pinned Graph API version (Feed vs Reels differ)  
 - Insights fetch job; snapshots + latest  
-- Sort/best posts  
-- Documented ER formula in UI  
+- Sort/best posts; documented ER formula  
 
 **Acceptance:** History increases over mocked time; unavailable metrics NULL; rate-limit backoff tested; views vs reach stored separately.
 
 ### Phase M3 — Opt-in AI Analysis
 
 - Liquibase `006-…` analysis tables  
-- Analysis job + AI service image/video/caption  
-- Structured JSON persistence + model versions  
-- Optional IG media binary cache before vision  
+- Introduce JobRunr (after Boot 4.1.2 spike) for heavy jobs  
+- Analysis pipeline; GPU global concurrency = 1; keyframes 8–12; transcript optional  
+- Dual `LlmPort` (local + optional cloud for Uzbek customer text)  
 
-**Acceptance:** Only selected posts change status; failure isolation; result reload without re-calling AI; tenant isolation.
+**Acceptance:** Only selected posts change status; failure isolation; result reload without re-calling AI; tenant isolation; no parallel VRAM contention.
 
-### Phase M4 — Knowledge Base v1 + Planning
+### Phase M3.5 — Inbox (Comments / DM) — **product gap, planned**
+
+See §22. Not part of original Content Intelligence sections 1–20, but required if the product includes reply automation.
+
+### Phase M4 — Knowledge Base v1 + Planning (+ VideoGen port stub)
 
 - Remainder of `006` plan/KB tables  
-- Documents from analyses + manual notes  
-- Brief → script generation using stored analyses  
+- Brief → script using stored analyses  
+- Introduce `VideoGenPort` interface (Runway/Luma/Kling/etc.) — implement after planning; FFmpeg studio remains separate  
 
-**Acceptance:** Plan references cannot include foreign media; “no verbatim copy” prompt tests; regenerate versions.
+**Acceptance:** Plan references cannot include foreign media; “no verbatim copy” prompt tests; VideoGenPort mocked without locking one vendor.
 
 ### Phase M5 — Publishing + feedback loop
 
-- Liquibase `007-…` publish tables  
-- Publish job + idempotency  
-- Local public URL tunnel documented  
-- Post-publish insights + feedback analysis into knowledge  
+- Liquibase `008-…` publish tables  
+- Publish job + idempotency + public URL tunnel for local  
+- Post-publish insights + feedback into knowledge  
 
-**Acceptance:** Double-submit safe; Meta limit respected; published id stored; feedback job updates KB for that tenant only; localhost publish failure is expected without tunnel.
+**Acceptance:** Double-submit safe; Meta limit respected; published id stored; localhost publish fails without tunnel (expected).
 
-### Phase M6 — Customer Studio (parallelizable after M3)
+### Phase M6 — Customer Studio (FFmpeg edit of uploaded video)
 
-- Upload + edit pipeline separate from IG sync  
+- Upload + edit pipeline separate from IG sync and from VideoGen  
 
 **Acceptance:** 9:16 preview; no dependency on `instagram_media` for core edit; optional publish handoff.
 
@@ -670,10 +683,64 @@ External review (Gemini) of this plan was assessed as **largely correct and alig
 | Publish requires public URL (tunnel/R2) | Agree — critical for M5 | Strengthened §13 |
 | Long-lived token ~60d + refresh cron T−10d | Agree — was under-specified | Added §13.1 + `IG_TOKEN_REFRESH` |
 | Split Liquibase 004/005/006/007 by phase | Agree — better than one mega-004 | Adopted in §19 |
-| Prefer JobRunr over DIY Redis Streams | Agree as **default M0 choice**, with Boot 4 compatibility check | Adopted in §14 |
+| Prefer JobRunr over DIY Redis Streams | Agree for **heavy** jobs | Deferred to **M3**; M1 uses `@Scheduled` |
 | JPA `EncryptedStringConverter` AES-GCM | Agree — concrete pattern | Adopted in §17 |
 
-**Not adopted blindly:** declaring JobRunr mandatory without an M0 compatibility spike; inventing Meta fields beyond docs.
+**Not adopted blindly:** declaring JobRunr mandatory without a compatibility spike; inventing Meta fields beyond docs.
+
+---
+
+## 22. Second peer review — gaps & simplifications (adopted)
+
+A follow-up review correctly identified **product gaps** relative to a broader Instagram AI Manager vision, and correctly pushed to **thin M0**.
+
+| Review point | Verdict | Plan action |
+|--------------|---------|-------------|
+| Strengths (opt-in AI, NULL metrics, token cron, URL refresh, public publish URL, worker membership, Liquibase split, ER versioning) | Agree | Kept |
+| **Inbox missing** (comments/DM, webhook, approve-then-auto) | Agree if product includes replies — was out of original §1–20 scope | Added **M3.5** + outline below |
+| **VideoGenPort** missing (idea → generated video via external APIs) | Agree as future port; distinct from FFmpeg studio | Added in M4 |
+| Simplify M0 (filesystem + `@Scheduled`, JobRunr at M3, Redis not required yet) | Agree — pragmatic | M0/M1/§14 revised |
+| Meta App **Development** mode for self-testing without full App Review | Agree | Noted in M1 acceptance |
+| Multi-tenant already present — no extra inventing | Agree | No change |
+| GPU global concurrency = 1 on 8 GB VRAM | Agree — critical for local | Added §2 / §9.4 |
+| Dual LLM (local + Claude for Uzbek customer text) | Agree as optional second `LlmPort` | Added §9.4 |
+| Whisper weak for Uzbek → transcript optional | Agree | Strengthened §9 |
+| Cap video keyframes 8–12 + single LLM merge | Agree | Strengthened §9 |
+| Stories out of v1 | Agree | Kept |
+| Verify insight metric names at M2 start | Agree | M2 first step |
+
+### 22.1 Inbox module outline (M3.5)
+
+**Goal:** Comment and DM reply assistance — human-approve first, optional later automation.
+
+**Depends on:** M1 account link + scopes; **public HTTPS** for webhooks (same tunnel class as publish).
+
+**Suggested tables (`007-instagram-inbox.sql`):**
+
+- `instagram_webhook_events` — raw delivery, dedupe by Meta event id, tenant/account  
+- `instagram_comments` — media-scoped threads (fields only as Meta returns)  
+- `instagram_conversations` / `instagram_messages` — DM threads if Messaging API permitted  
+- `inbox_reply_drafts` — AI draft, status `PENDING_APPROVAL` \| `SENT` \| `REJECTED`  
+- `inbox_reply_jobs` — send attempts, rate limiting  
+
+**API (draft):** list inbox items; generate draft; approve/send; webhook callback (signature verify).
+
+**Rules:**
+
+- Separate Meta permissions from basic media (verify current scope names in Meta docs — do not invent).  
+- Respect messaging **24-hour window** and platform rate limits.  
+- Default **approve mode**; auto-send is a later flag per tenant.  
+- Never train/cross-leak replies across tenants.  
+- Customer-facing Uzbek drafts prefer cloud `LlmPort` when configured.
+
+**Acceptance:** webhook signature verified; foreign-tenant events rejected; draft cannot send without approve in v1; Development-mode tester account only until App Review.
+
+### 22.2 VideoGen vs Studio
+
+| Capability | Module | Notes |
+|------------|--------|-------|
+| Edit customer-uploaded footage (FFmpeg) | M6 Studio | Local/CPU heavy |
+| Generate video from brief/script via external API | M4+ `VideoGenPort` | Vendor-agnostic; cost/API keys; not in M1 |
 
 ---
 
@@ -699,16 +766,20 @@ External review (Gemini) of this plan was assessed as **largely correct and alig
 - [ ] Engagement formula versioned and documented  
 - [ ] Publish rate limits enforced; public URL strategy for local  
 - [ ] Studio module independent of IG sync tables  
-- [ ] Liquibase split by phase (`004`–`007`); never edit `001`–`003`  
-- [ ] Workers re-resolve membership; no ThreadLocal tenant trust  
+- [ ] Liquibase split by phase (`004`–`008`); never edit `001`–`003`  
+- [ ] M1 does not require JobRunr/MinIO/Redis  
+- [ ] Workers (when introduced) re-resolve membership; no ThreadLocal tenant trust  
+- [ ] GPU global concurrency = 1 on single-GPU local hosts  
+- [ ] Transcript optional; video keyframes capped  
+- [ ] Inbox / VideoGen tracked as M3.5 / M4+ — not silently skipped if product needs them  
 - [ ] Existing `./gradlew test` suite remains green  
-- [ ] Local Compose (Postgres + Redis) sufficient for M1–M2  
+- [ ] Local Compose Postgres sufficient for M1–M2  
 
 ---
 
 ## Document control
 
-- This file is the architecture source for Instagram Content Intelligence.  
-- Implementation must open with **Phase M0 prep then M1** after explicit product permission (project rules currently forbid Media/Instagram/AI without approval).  
-- First coding step when approved: `004-instagram-core.sql` + `instagram/` package skeleton + encryption converter + OAuth/sync — not AI.  
+- This file is the architecture source for Instagram Content Intelligence (+ planned Inbox/VideoGen extensions).  
+- Implementation must open with **thin M0 then M1** after explicit product permission (project rules currently forbid Media/Instagram/AI without approval).  
+- First coding step when approved: `004-instagram-core.sql` + `instagram/` package skeleton + encryption converter + OAuth/sync — **not** AI, Inbox, or JobRunr.  
 - Before coding M1, re-check Meta developer docs for the pinned Graph API version and update Section 6/8 metric tables with citation dates.

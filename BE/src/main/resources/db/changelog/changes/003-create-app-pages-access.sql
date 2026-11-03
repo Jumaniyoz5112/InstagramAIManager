@@ -1,18 +1,18 @@
 --liquibase formatted sql
 
---changeset system:003-app-pages
+--changeset system:003-app-pages logicalFilePath:db/changelog/changes/003-app-pages.sql
 --preconditions onFail:MARK_RAN onError:HALT
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_pages'
 
 CREATE TABLE app_pages (
-    code                VARCHAR(50)   PRIMARY KEY,
-    name                VARCHAR(100)  NOT NULL,
-    description         VARCHAR(255),
-    path                VARCHAR(120)  NOT NULL,
-    sort_order          INT           NOT NULL,
-    default_for_new_users BOOLEAN     NOT NULL DEFAULT FALSE,
-    admin_only          BOOLEAN       NOT NULL DEFAULT FALSE,
-    enabled             BOOLEAN       NOT NULL DEFAULT TRUE
+    code                  VARCHAR(50)   PRIMARY KEY,
+    name                  VARCHAR(100)  NOT NULL,
+    description           VARCHAR(255),
+    path                  VARCHAR(120)  NOT NULL,
+    sort_order            INT           NOT NULL,
+    default_for_new_users BOOLEAN       NOT NULL DEFAULT FALSE,
+    admin_only            BOOLEAN       NOT NULL DEFAULT FALSE,
+    enabled               BOOLEAN       NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE user_page_access (

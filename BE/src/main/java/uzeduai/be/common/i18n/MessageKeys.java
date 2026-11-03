@@ -33,6 +33,14 @@ public final class MessageKeys {
     public static final String PLATFORM_INVALID_SORT = "error.platform.invalid_sort";
     public static final String PLATFORM_INVALID_PAGE_SIZE = "error.platform.invalid_page_size";
 
+    public static final String INSTAGRAM_DISABLED = "error.instagram.disabled";
+    public static final String INSTAGRAM_WORKSPACE_REQUIRED = "error.instagram.workspace_required";
+    public static final String INSTAGRAM_OAUTH_STATE_INVALID = "error.instagram.oauth_state_invalid";
+    public static final String INSTAGRAM_ACCOUNT_NOT_FOUND = "error.instagram.account_not_found";
+    public static final String INSTAGRAM_MEDIA_NOT_FOUND = "error.instagram.media_not_found";
+    public static final String INSTAGRAM_SYNC_IN_PROGRESS = "error.instagram.sync_in_progress";
+    public static final String INSTAGRAM_NEEDS_REAUTH = "error.instagram.needs_reauth";
+
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";
     public static final String VALIDATION_FAILED = "error.validation.failed";
