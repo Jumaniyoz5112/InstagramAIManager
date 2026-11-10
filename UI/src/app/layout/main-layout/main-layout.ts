@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, DestroyRef, effect, HostListener, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
@@ -17,17 +17,33 @@ import { LangSwitcher } from '../../shared/ui/lang-switcher';
       display: block;
     }
 
+    .nav-drawer {
+      transform: translateX(-100%);
+      transition: transform 300ms ease-out;
+    }
+
+    .nav-drawer.open {
+      transform: translateX(0);
+    }
+
     @media (min-width: 1024px) {
       :host {
         height: 100dvh;
         overflow: hidden;
+      }
+
+      .nav-drawer,
+      .nav-drawer.open {
+        transform: none;
       }
     }
   `
 })
 export class MainLayout {
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(AuthService);
+  protected readonly menuOpen = signal(false);
 
   private readonly currentUrl = toSignal(
     this.router.events.pipe(
@@ -37,6 +53,26 @@ export class MainLayout {
     ),
     { initialValue: this.router.url }
   );
+
+  constructor() {
+    effect(() => {
+      this.currentUrl();
+      this.menuOpen.set(false);
+    });
+
+    effect(() => {
+      if (typeof document === 'undefined') {
+        return;
+      }
+      document.body.style.overflow = this.menuOpen() ? 'hidden' : '';
+    });
+
+    this.destroyRef.onDestroy(() => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    });
+  }
 
   protected readonly pages = computed(() => navPages(this.auth.currentUser()));
 
@@ -76,6 +112,26 @@ export class MainLayout {
     return user.tenants.find((t) => t.id === user.activeTenantId)?.name ?? null;
   });
 
+  @HostListener('window:keydown.escape')
+  protected onEscape(): void {
+    this.menuOpen.set(false);
+  }
+
+  @HostListener('window:resize')
+  protected onResize(): void {
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+      this.menuOpen.set(false);
+    }
+  }
+
+  protected toggleMenu(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
+  protected closeMenu(): void {
+    this.menuOpen.set(false);
+  }
+
   protected pageLabelKey(code: string): string {
     return `page.${code}`;
   }
@@ -96,6 +152,7 @@ export class MainLayout {
   }
 
   protected logout(): void {
+    this.closeMenu();
     this.auth.logout().subscribe({
       error: (err: unknown) => {
         console.error('Logout failed', err);

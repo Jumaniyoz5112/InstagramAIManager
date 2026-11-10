@@ -13,6 +13,8 @@ export const RU = {
   'nav.active_context': 'Активный контекст',
   'nav.no_tenant': 'Нет tenant',
   'nav.no_workspace': 'Workspace не выбран',
+  'nav.menu': 'Меню',
+  'nav.close_menu': 'Закрыть меню',
 
   'page.DASHBOARD': 'Dashboard',
   'page.TENANTS': 'Tenants',

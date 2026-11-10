@@ -9,7 +9,9 @@ export type AppIconName =
   | 'shield'
   | 'plus'
   | 'check'
-  | 'instagram';
+  | 'instagram'
+  | 'menu'
+  | 'close';
 
 @Component({
   selector: 'app-icon',
@@ -65,6 +67,15 @@ export type AppIconName =
           <rect x="3" y="3" width="18" height="18" rx="5" />
           <circle cx="12" cy="12" r="4" />
           <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        }
+        @case ('menu') {
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        }
+        @case ('close') {
+          <path d="M6 6l12 12" />
+          <path d="M18 6 6 18" />
         }
       }
     </svg>

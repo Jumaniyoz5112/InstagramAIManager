@@ -13,6 +13,8 @@ export const UZ = {
   'nav.active_context': 'Aktiv kontekst',
   'nav.no_tenant': 'Tenant yo‘q',
   'nav.no_workspace': 'Workspace tanlanmagan',
+  'nav.menu': 'Menyu',
+  'nav.close_menu': 'Menyuni yopish',
 
   'page.DASHBOARD': 'Dashboard',
   'page.TENANTS': 'Tenantlar',

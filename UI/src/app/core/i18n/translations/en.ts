@@ -13,6 +13,8 @@ export const EN = {
   'nav.active_context': 'Active context',
   'nav.no_tenant': 'No tenant',
   'nav.no_workspace': 'No workspace selected',
+  'nav.menu': 'Menu',
+  'nav.close_menu': 'Close menu',
 
   'page.DASHBOARD': 'Dashboard',
   'page.TENANTS': 'Tenants',
