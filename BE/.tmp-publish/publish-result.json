@@ -1,0 +1,1 @@
+{"success":false,"messageKey":"error.instagram.publish_failed","messageArgs":["400 Bad Request: \"{\"error\":{\"message\":\"(#10) Requires instagram_content_publish permission to manage the object\",\"type\":\"OAuthException\",\"code\":10,\"fbtrace_id\":\"AA_UZcSaQMQyX9OccdcHt4z\"}}\""],"timestamp":"2026-11-10T17:40:27.322793800Z"}

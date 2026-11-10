@@ -1,0 +1,60 @@
+[
+  {
+    "name": "FEED_IMAGE",
+    "publishType": "FEED_IMAGE",
+    "id": "9822cfee-f780-4ef3-8216-077964876eb3",
+    "accountId": "7c9b87b9-f7cf-42d3-b902-fab2e953469b",
+    "status": "PUBLISHED",
+    "caption": "IAM FEED_IMAGE 2026-11-10T17:52:53.458Z",
+    "containerId": "17966514162229630",
+    "publishedIgMediaId": "18222660373349645",
+    "errorMessage": null,
+    "startedAt": "2026-11-10T17:52:55.227613Z",
+    "finishedAt": "2026-11-10T17:53:08.563919300Z",
+    "createdAt": "2026-11-10T17:52:55.227613Z",
+    "http": 200,
+    "success": true
+  },
+  {
+    "name": "STORY_IMAGE",
+    "publishType": "STORY_IMAGE",
+    "id": "a1d00fc4-0355-4ba7-86b7-8bd2d9374778",
+    "accountId": "7c9b87b9-f7cf-42d3-b902-fab2e953469b",
+    "status": "PUBLISHED",
+    "caption": "IAM STORY_IMAGE 2026-11-10T17:53:08.569Z",
+    "containerId": "17966514258229630",
+    "publishedIgMediaId": "18048446315823916",
+    "errorMessage": null,
+    "startedAt": "2026-11-10T17:53:09.932577100Z",
+    "finishedAt": "2026-11-10T17:53:20.908731Z",
+    "createdAt": "2026-11-10T17:53:09.933575900Z",
+    "http": 200,
+    "success": true
+  },
+  {
+    "name": "REELS",
+    "publishType": "REELS",
+    "http": 502,
+    "success": false,
+    "messageKey": "error.instagram.publish_failed",
+    "messageArgs": [
+      "400 Bad Request: \"{\"error\":{\"message\":\"Fatal\",\"type\":\"OAuthException\",\"code\":-1,\"error_subcode\":2207085,\"is_transient\":false,\"error_user_title\":\"Generic Internal Error\",\"error_user_msg\":\"An internal server error occurred. Please try again later.\",\"fbtrace_id\":\"AtM5yJgC8hl5XbZobkDxJWd\"}}\""
+    ]
+  },
+  {
+    "name": "CAROUSEL",
+    "publishType": "CAROUSEL",
+    "id": "f0255867-6b69-48e4-a60f-63e1ef495303",
+    "accountId": "7c9b87b9-f7cf-42d3-b902-fab2e953469b",
+    "status": "PUBLISHED",
+    "caption": "IAM CAROUSEL 2026-11-10T17:53:52.542Z",
+    "containerId": "17966514402229630",
+    "publishedIgMediaId": "18404326240206790",
+    "errorMessage": null,
+    "startedAt": "2026-11-10T17:53:53.999255400Z",
+    "finishedAt": "2026-11-10T17:54:18.679798Z",
+    "createdAt": "2026-11-10T17:53:54.000245500Z",
+    "http": 200,
+    "success": true
+  }
+]
