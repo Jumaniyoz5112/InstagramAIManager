@@ -91,7 +91,7 @@
     </div>
 
     <div class="surface-card p-5">
-      <div class="mb-4 flex items-center justify-between gap-3">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 class="font-display text-lg font-semibold text-white">{{ 'instagram.media' | t }}</h3>
         @if (mediaTotalPages() > 1) {
           <div class="flex items-center gap-2 text-xs text-white/50">
@@ -116,6 +116,20 @@
         }
       </div>
 
+      <div class="mb-4 flex flex-wrap gap-2">
+        @for (f of mediaFilters; track f) {
+          <button
+            type="button"
+            class="btn-ghost !px-2.5 !py-1 text-[11px]"
+            [class.!border-accent/40]="mediaFilter() === f"
+            [class.!bg-accent/10]="mediaFilter() === f"
+            (click)="setMediaFilter(f)"
+          >
+            {{ filterLabelKey(f) | t }}
+          </button>
+        }
+      </div>
+
       @if (loadingMedia()) {
         <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
       } @else {
@@ -135,12 +149,16 @@
                   </div>
                 }
               </div>
-              <div class="space-y-1 px-3 py-2.5">
+              <div class="space-y-1.5 px-3 py-2.5">
                 <p class="truncate text-xs font-semibold uppercase tracking-wide text-white/40">
                   {{ m.mediaType }}
                 </p>
                 <p class="line-clamp-2 text-sm text-white/80">
                   {{ m.caption || ('instagram.no_caption' | t) }}
+                </p>
+                <p class="text-[11px] text-white/40">
+                  {{ 'instagram.metric.likes' | t }} {{ metricValue(m.likeCount) }}
+                  · {{ 'instagram.metric.comments' | t }} {{ metricValue(m.commentsCount) }}
                 </p>
               </div>
             </button>
@@ -177,12 +195,56 @@
         } @else {
           <div class="grid gap-5 md:grid-cols-2">
             <div class="overflow-hidden rounded-xl bg-black/30">
-              @if (previewUrl(detail); as url) {
+              @if (detail.mediaType === 'CAROUSEL_ALBUM' && detail.children?.length) {
+                @if (carouselChild(); as child) {
+                  <div class="relative">
+                    @if (isVideo(child.mediaType) && child.mediaUrl) {
+                      <video [src]="child.mediaUrl" controls class="w-full object-contain"></video>
+                    } @else if (child.mediaUrl || child.thumbnailUrl; as curl) {
+                      <img [src]="curl" alt="" class="w-full object-contain" />
+                    }
+                    <div class="absolute inset-x-0 bottom-2 flex items-center justify-between px-2">
+                      <button type="button" class="btn-ghost !px-2 !py-1 text-xs" (click)="prevCarousel()">←</button>
+                      <span class="rounded bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
+                        {{ carouselIndex() + 1 }} / {{ detail.children!.length }}
+                      </span>
+                      <button type="button" class="btn-ghost !px-2 !py-1 text-xs" (click)="nextCarousel()">→</button>
+                    </div>
+                  </div>
+                }
+              } @else if (isVideo(detail.mediaType) && detail.mediaUrl) {
+                <video
+                  [src]="detail.mediaUrl"
+                  controls
+                  [attr.poster]="detail.thumbnailUrl || null"
+                  class="w-full object-contain"
+                ></video>
+              } @else if (previewUrl(detail); as url) {
                 <img [src]="url" [alt]="detail.caption || detail.igMediaId" class="w-full object-contain" />
               }
             </div>
             <div class="space-y-3 text-sm text-white/70">
               <p class="whitespace-pre-wrap text-white">{{ detail.caption || ('instagram.no_caption' | t) }}</p>
+
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                  <p class="text-white/40">{{ 'instagram.metric.likes' | t }}</p>
+                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.likeCount) }}</p>
+                </div>
+                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                  <p class="text-white/40">{{ 'instagram.metric.comments' | t }}</p>
+                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.commentsCount) }}</p>
+                </div>
+                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                  <p class="text-white/40">{{ 'instagram.metric.shares' | t }}</p>
+                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.sharesCount) }}</p>
+                </div>
+                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                  <p class="text-white/40">{{ 'instagram.metric.saves' | t }}</p>
+                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.savesCount) }}</p>
+                </div>
+              </div>
+
               @if (detail.publishedAt) {
                 <p>{{ 'instagram.published' | t }}: {{ detail.publishedAt | date: 'medium' }}</p>
               }
@@ -197,22 +259,42 @@
                   <app-icon name="activity" [size]="14" />
                 </a>
               }
-              @if (detail.children?.length) {
-                <div>
-                  <p class="mb-2 text-xs font-bold uppercase tracking-wide text-white/40">
-                    {{ 'instagram.carousel' | t }}
-                  </p>
-                  <div class="grid grid-cols-3 gap-2">
-                    @for (c of detail.children; track c.id) {
-                      <div class="aspect-square overflow-hidden rounded-lg bg-black/30">
-                        @if (c.thumbnailUrl || c.mediaUrl; as curl) {
-                          <img [src]="curl" alt="" class="h-full w-full object-cover" />
+
+              <div>
+                <p class="mb-2 text-xs font-bold uppercase tracking-wide text-white/40">
+                  {{ 'instagram.comments' | t }}
+                </p>
+                @if (loadingComments()) {
+                  <p class="text-xs text-white/45">{{ 'action.loading' | t }}</p>
+                } @else if (!topLevelComments().length) {
+                  <p class="text-xs text-white/45">{{ 'instagram.comments_empty' | t }}</p>
+                } @else {
+                  <ul class="max-h-64 space-y-3 overflow-y-auto pr-1">
+                    @for (c of topLevelComments(); track c.id) {
+                      <li class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                        <p class="text-xs font-semibold text-white/80">
+                          {{ c.username ? '@' + c.username : ('instagram.comment_anon' | t) }}
+                          @if (c.likeCount != null) {
+                            <span class="ml-2 font-normal text-white/40">♥ {{ c.likeCount }}</span>
+                          }
+                        </p>
+                        <p class="mt-1 whitespace-pre-wrap text-sm text-white/75">{{ c.text }}</p>
+                        @if (c.publishedAt) {
+                          <p class="mt-1 text-[11px] text-white/35">{{ c.publishedAt | date: 'short' }}</p>
                         }
-                      </div>
+                        @for (r of repliesFor(c); track r.id) {
+                          <div class="mt-2 border-l border-white/15 pl-3">
+                            <p class="text-xs font-semibold text-white/70">
+                              {{ r.username ? '@' + r.username : ('instagram.comment_anon' | t) }}
+                            </p>
+                            <p class="mt-0.5 whitespace-pre-wrap text-sm text-white/65">{{ r.text }}</p>
+                          </div>
+                        }
+                      </li>
                     }
-                  </div>
-                </div>
-              }
+                  </ul>
+                }
+              </div>
             </div>
           </div>
         }

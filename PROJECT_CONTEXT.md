@@ -4,9 +4,9 @@
 
 **Oxirgi yangilanish:** 2026-11-10  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; Meta live OAuth (Unified Login) sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE + media sync tasdiqlandi  
+**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; post tip filter / video / metrics / comments sync — **DONE**; Meta live OAuth sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE  
 **To‘xtatilgan:** Media Management CRUD, Instagram **publishing**, AI Agent / Video Factory  
-**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; M2 insights  
+**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; deeper analytics  
 
 ---
 
@@ -48,6 +48,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | M0 AES-GCM crypto + local StoragePort | DONE |
 | M1 Instagram OAuth + media sync (BE, disabled by default) | DONE |
 | M1 Instagram UI (connect / accounts / media / detail) | DONE |
+| Post media filter + video player + metrics/comments sync | DONE |
 
 ### Instagram (M0/M1 BE+UI)
 
@@ -59,9 +60,12 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Same-portfolio Meta: user OAuth `assigned_instagram_accounts` bo‘sh bo‘lishi mumkin; System User Assign + token yoki **dev-only** `POST /api/v1/instagram/dev/seed-account` (`@Profile("dev")`)
 - Media Graph: Facebook Login / SUAT tokenlar uchun `graph.facebook.com` + **Bearer** (query `access_token` mangle qilmasin); `graph.instagram.com` faqat Instagram Login tokenlari
 - Accounts: `GET /api/v1/instagram/accounts`, `POST .../{id}/sync`, `DELETE .../{id}`
-- Media: `GET /api/v1/instagram/media`, `GET .../{mediaId}`
+- Media: `GET /api/v1/instagram/media` (`mediaType` optional), `GET .../{mediaId}`, `GET .../{mediaId}/comments`
+- Sync enrich: Graph `like_count`/`comments_count`; insights `shares`/`saved` → DB; comments upsert (`instagram_media_comments`); insights/comments xato → null/skip, sync davom etadi
+- Liquibase: `005-instagram-media-metrics-comments.sql` (metrics columns + comments table)
+- Scopes default: `instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_comments`
 - Sync: enqueue → scheduler; live verified: `@mashhura01_2009` ACTIVE, media synced
-- UI: `features/instagram`; i18n uz/ru/en
+- UI: filter ALL|IMAGE|VIDEO|CAROUSEL; HTML5 video; metrics row; comments panel (reply indent); i18n uz/ru/en
 - Prod secrets: `JWT_SECRET` + `IG_TOKEN_ENCRYPTION_KEY` (dev crypto default rejected in prod)
 
 ### Platform Admin (H1, read-only)
@@ -148,8 +152,8 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 1. Meta App credentials — live OAuth (`INSTAGRAM_ENABLED=true` + App ID/Secret)
 2. Platform Admin UI (`/app/platform/...`)
-3. M2 insights (`005-instagram-insights.sql`)
-4. Media Management CRUD / publishing / AI — alohida ruxsat
+3. Deeper analytics / AI — alohida ruxsat
+4. Media Management CRUD / publishing — alohida ruxsat
 
 ## 5. Qoidalar
 
@@ -178,3 +182,5 @@ Batafsil kunlik jurnal: `.cursor/md/YYYY-MM-DD.md`
 | 2026-11-03 | Liquibase 001–003 rename (`logicalFilePath`); 004 Instagram core |
 | 2026-11-03 | M0 crypto/storage + M1 OAuth/sync BE; tests 33/33 |
 | 2026-11-03 | M1 Instagram UI + OAuth frontend redirect; UI build OK |
+| 2026-11-10 | Live Meta connect/sync fix (crypto init, Bearer Graph, dev seed) |
+| 2026-11-10 | Media filter/video + metrics/comments Liquibase 005 + sync/API/UI |

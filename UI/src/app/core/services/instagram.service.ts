@@ -42,7 +42,21 @@ export interface InstagramMedia {
   permalink: string | null;
   publishedAt: string | null;
   analysisStatus: MediaAnalysisStatus;
+  likeCount: number | null;
+  commentsCount: number | null;
+  sharesCount: number | null;
+  savesCount: number | null;
   children: InstagramMediaChild[] | null;
+}
+
+export interface InstagramMediaComment {
+  id: string;
+  igCommentId: string;
+  parentIgCommentId: string | null;
+  username: string | null;
+  text: string | null;
+  likeCount: number | null;
+  publishedAt: string | null;
 }
 
 export interface PageResponse<T> {
@@ -101,10 +115,18 @@ export class InstagramService {
       .pipe(map((res) => res.data));
   }
 
-  listMedia(accountId: string | null, page = 0, size = 20): Observable<PageResponse<InstagramMedia>> {
+  listMedia(
+    accountId: string | null,
+    page = 0,
+    size = 20,
+    mediaType: InstagramMediaType | null = null
+  ): Observable<PageResponse<InstagramMedia>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (accountId) {
       params = params.set('accountId', accountId);
+    }
+    if (mediaType) {
+      params = params.set('mediaType', mediaType);
     }
     return this.http
       .get<ApiResponse<PageResponse<InstagramMedia>>>(`${this.baseUrl}/media`, {
@@ -117,6 +139,14 @@ export class InstagramService {
   getMedia(mediaId: string): Observable<InstagramMedia> {
     return this.http
       .get<ApiResponse<InstagramMedia>>(`${this.baseUrl}/media/${mediaId}`, { withCredentials: true })
+      .pipe(map((res) => res.data));
+  }
+
+  listComments(mediaId: string): Observable<InstagramMediaComment[]> {
+    return this.http
+      .get<ApiResponse<InstagramMediaComment[]>>(`${this.baseUrl}/media/${mediaId}/comments`, {
+        withCredentials: true
+      })
       .pipe(map((res) => res.data));
   }
 }

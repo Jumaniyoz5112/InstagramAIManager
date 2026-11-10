@@ -62,6 +62,21 @@ public class InstagramMedia {
     @Column(name = "media_url_fetched_at")
     private Instant mediaUrlFetchedAt;
 
+    @Column(name = "like_count")
+    private Integer likeCount;
+
+    @Column(name = "comments_count")
+    private Integer commentsCount;
+
+    @Column(name = "shares_count")
+    private Integer sharesCount;
+
+    @Column(name = "saves_count")
+    private Integer savesCount;
+
+    @Column(name = "insights_synced_at")
+    private Instant insightsSyncedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "analysis_status", nullable = false, length = 32)
     private MediaAnalysisStatus analysisStatus = MediaAnalysisStatus.NOT_ANALYZED;

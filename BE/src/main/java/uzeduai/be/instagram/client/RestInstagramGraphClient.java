@@ -31,7 +31,11 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
     private static final Logger log = LoggerFactory.getLogger(RestInstagramGraphClient.class);
 
     private static final String MEDIA_FIELDS =
-            "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
+            "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,"
+                    + "like_count,comments_count,shares_count,saved_count";
+    private static final String COMMENT_FIELDS =
+            "id,text,username,timestamp,like_count,from{id,username},"
+                    + "replies{id,text,username,timestamp,like_count,from{id,username}}";
     private static final ParameterizedTypeReference<Map<String, Object>> MAP_TYPE =
             new ParameterizedTypeReference<>() {
             };
@@ -147,9 +151,29 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
     public MediaPage fetchMediaPage(String igUserId, String accessToken, String afterCursor) {
         // Facebook Login / System User tokens must hit graph.facebook.com (not graph.instagram.com).
         // Prefer Bearer header so long tokens are not mangled in query strings.
+        try {
+            return fetchMediaPageWithFields(igUserId, accessToken, afterCursor, MEDIA_FIELDS);
+        } catch (Exception fullFieldsError) {
+            log.warn("Media page with metrics fields failed, retrying core fields: {}", fullFieldsError.getMessage());
+            return fetchMediaPageWithFields(
+                    igUserId,
+                    accessToken,
+                    afterCursor,
+                    "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count"
+            );
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private MediaPage fetchMediaPageWithFields(
+            String igUserId,
+            String accessToken,
+            String afterCursor,
+            String fields
+    ) {
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(fbApi("/" + igUserId + "/media"))
-                .queryParam("fields", MEDIA_FIELDS)
+                .queryParam("fields", fields)
                 .queryParam("limit", 25);
         if (afterCursor != null && !afterCursor.isBlank()) {
             builder.queryParam("after", afterCursor);
@@ -210,6 +234,117 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
             return Optional.of(node);
         } catch (Exception e) {
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public Map<String, Long> fetchMediaInsights(String igMediaId, String accessToken) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        // Prefer a single batch first; fall back to one-by-one if Meta rejects the combo.
+        try {
+            return parseInsights(getMapWithBearer(insightsUrl(igMediaId, "shares,saved"), accessToken));
+        } catch (Exception batchError) {
+            if (isPermissionDenied(batchError)) {
+                throw new InsightsPermissionException(batchError.getMessage());
+            }
+            log.debug("Batch insights failed for {}: {}", igMediaId, batchError.getMessage());
+        }
+        for (String metric : List.of("shares", "saved")) {
+            try {
+                Map<String, Long> one = parseInsights(getMapWithBearer(insightsUrl(igMediaId, metric), accessToken));
+                result.putAll(one);
+            } catch (Exception e) {
+                if (isPermissionDenied(e)) {
+                    throw new InsightsPermissionException(e.getMessage());
+                }
+                log.warn("Insight '{}' unavailable for media {}: {}", metric, igMediaId, e.getMessage());
+            }
+        }
+        return result;
+    }
+
+    private String insightsUrl(String igMediaId, String metric) {
+        return UriComponentsBuilder
+                .fromUriString(fbApi("/" + igMediaId + "/insights"))
+                .queryParam("metric", metric)
+                .toUriString();
+    }
+
+    private static Map<String, Long> parseInsights(Map<String, Object> node) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        Object rawData = node == null ? null : node.get("data");
+        if (!(rawData instanceof List<?> list)) {
+            return result;
+        }
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> map)) {
+                continue;
+            }
+            String name = map.get("name") == null ? null : map.get("name").toString();
+            Long value = null;
+            Object values = map.get("values");
+            if (values instanceof List<?> valueList && !valueList.isEmpty()
+                    && valueList.getFirst() instanceof Map<?, ?> valueMap
+                    && valueMap.get("value") != null) {
+                value = toLong(valueMap.get("value"));
+            } else if (map.get("value") != null) {
+                value = toLong(map.get("value"));
+            } else {
+                Object totalValue = map.get("total_value");
+                if (totalValue instanceof Map<?, ?> totalMap && totalMap.get("value") != null) {
+                    value = toLong(totalMap.get("value"));
+                }
+            }
+            if (name != null && value != null) {
+                result.put(name, value);
+            }
+        }
+        return result;
+    }
+
+    private static boolean isPermissionDenied(Exception e) {
+        String msg = e.getMessage() == null ? "" : e.getMessage();
+        return msg.contains("(#10)")
+                || msg.contains("does not have permission")
+                || msg.contains("permission");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> fetchMediaComments(String igMediaId, String accessToken) {
+        String url = UriComponentsBuilder
+                .fromUriString(fbApi("/" + igMediaId + "/comments"))
+                .queryParam("fields", COMMENT_FIELDS)
+                .queryParam("limit", 50)
+                .toUriString();
+        List<Map<String, Object>> data = new ArrayList<>();
+        try {
+            Map<String, Object> node = getMapWithBearer(url, accessToken);
+            Object rawData = node == null ? null : node.get("data");
+            if (rawData instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> map) {
+                        data.add(new LinkedHashMap<>((Map<String, Object>) map));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Comments unavailable for media {}: {}", igMediaId, e.getMessage());
+        }
+        return data;
+    }
+
+    private static Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

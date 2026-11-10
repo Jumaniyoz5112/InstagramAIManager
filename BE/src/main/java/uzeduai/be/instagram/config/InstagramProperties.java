@@ -21,7 +21,8 @@ public class InstagramProperties {
     private String facebookAuthorizeBaseUrl = "https://www.facebook.com";
     private String facebookGraphBaseUrl = "https://graph.facebook.com";
     private String graphVersion = "v21.0";
-    private String scopes = "instagram_business_basic";
+    private String scopes =
+            "instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_comments";
     private int oauthStateTtlMinutes = 10;
     private int historicalMaxPages = 50;
     private int mediaUrlTtlHours = 48;

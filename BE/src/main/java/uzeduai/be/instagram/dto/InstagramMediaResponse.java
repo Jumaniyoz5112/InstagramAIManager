@@ -18,6 +18,10 @@ public record InstagramMediaResponse(
         String permalink,
         Instant publishedAt,
         MediaAnalysisStatus analysisStatus,
+        Integer likeCount,
+        Integer commentsCount,
+        Integer sharesCount,
+        Integer savesCount,
         List<InstagramMediaChildResponse> children
 ) {
 }

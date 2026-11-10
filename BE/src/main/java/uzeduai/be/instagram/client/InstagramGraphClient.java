@@ -18,6 +18,25 @@ public interface InstagramGraphClient {
 
     Optional<Map<String, Object>> fetchMediaFields(String igMediaId, String accessToken, String fields);
 
+    /**
+     * Media insights for shares/saved. Empty map on permission/API errors (sync must continue).
+     * Implementations may throw {@link InsightsPermissionException} when the token lacks insights access
+     * so callers can skip remaining insight calls for the job.
+     */
+    Map<String, Long> fetchMediaInsights(String igMediaId, String accessToken);
+
+    /** Thrown when Graph rejects insights due to missing app/token permission (#10). */
+    class InsightsPermissionException extends RuntimeException {
+        public InsightsPermissionException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Top-level comments with one-level replies nested under each item as {@code replies}.
+     */
+    List<Map<String, Object>> fetchMediaComments(String igMediaId, String accessToken);
+
     record TokenExchangeResult(String accessToken, Long expiresInSeconds) {
     }
 

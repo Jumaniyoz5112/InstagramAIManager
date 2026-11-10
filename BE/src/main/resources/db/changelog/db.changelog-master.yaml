@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-app-pages-access.sql
   - include:
       file: db/changelog/changes/004-create-instagram-core.sql
+  - include:
+      file: db/changelog/changes/005-instagram-media-metrics-comments.sql

@@ -44,4 +44,14 @@ public class NoopInstagramGraphClient implements InstagramGraphClient {
     public Optional<Map<String, Object>> fetchMediaFields(String igMediaId, String accessToken, String fields) {
         return Optional.empty();
     }
+
+    @Override
+    public Map<String, Long> fetchMediaInsights(String igMediaId, String accessToken) {
+        return Map.of();
+    }
+
+    @Override
+    public List<Map<String, Object>> fetchMediaComments(String igMediaId, String accessToken) {
+        return List.of();
+    }
 }

@@ -18,14 +18,17 @@ import uzeduai.be.instagram.dto.SyncJobResponse;
 import uzeduai.be.instagram.entity.InstagramAccount;
 import uzeduai.be.instagram.entity.InstagramMedia;
 import uzeduai.be.instagram.entity.InstagramMediaChild;
+import uzeduai.be.instagram.entity.InstagramMediaComment;
 import uzeduai.be.instagram.entity.SyncJob;
 import uzeduai.be.instagram.repository.InstagramAccountRepository;
 import uzeduai.be.instagram.repository.InstagramMediaChildRepository;
+import uzeduai.be.instagram.repository.InstagramMediaCommentRepository;
 import uzeduai.be.instagram.repository.InstagramMediaRepository;
 import uzeduai.be.instagram.repository.SyncJobRepository;
 import uzeduai.be.security.user.CustomUserDetails;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +43,7 @@ public class InstagramSyncService {
     private final InstagramAccountRepository accountRepository;
     private final InstagramMediaRepository mediaRepository;
     private final InstagramMediaChildRepository childRepository;
+    private final InstagramMediaCommentRepository commentRepository;
     private final SyncJobRepository syncJobRepository;
     private final InstagramAccountService accountService;
 
@@ -49,6 +53,7 @@ public class InstagramSyncService {
             InstagramAccountRepository accountRepository,
             InstagramMediaRepository mediaRepository,
             InstagramMediaChildRepository childRepository,
+            InstagramMediaCommentRepository commentRepository,
             SyncJobRepository syncJobRepository,
             InstagramAccountService accountService
     ) {
@@ -57,6 +62,7 @@ public class InstagramSyncService {
         this.accountRepository = accountRepository;
         this.mediaRepository = mediaRepository;
         this.childRepository = childRepository;
+        this.commentRepository = commentRepository;
         this.syncJobRepository = syncJobRepository;
         this.accountService = accountService;
     }
@@ -165,6 +171,7 @@ public class InstagramSyncService {
             int upserted = 0;
             String after = null;
             int maxPages = fullHistory ? properties.getHistoricalMaxPages() : 2;
+            SyncEnrichmentState enrichment = new SyncEnrichmentState();
 
             while (pages < maxPages) {
                 InstagramGraphClient.MediaPage page = graphClient.fetchMediaPage(
@@ -179,7 +186,7 @@ public class InstagramSyncService {
                         continue;
                     }
                     boolean existed = mediaRepository.existsByTenantIdAndIgMediaId(account.getTenantId(), igMediaId);
-                    upsertMedia(account, item);
+                    upsertMedia(account, item, enrichment);
                     upserted++;
                     if (!fullHistory && existed) {
                         knownHits++;
@@ -222,7 +229,7 @@ public class InstagramSyncService {
         }
     }
 
-    private void upsertMedia(InstagramAccount account, Map<String, Object> item) {
+    private void upsertMedia(InstagramAccount account, Map<String, Object> item, SyncEnrichmentState enrichment) {
         String igMediaId = stringVal(item.get("id"));
         InstagramMedia media = mediaRepository.findByTenantIdAndIgMediaId(account.getTenantId(), igMediaId)
                 .orElseGet(InstagramMedia::new);
@@ -238,10 +245,16 @@ public class InstagramSyncService {
         media.setPermalink(stringVal(item.get("permalink")));
         media.setPublishedAt(parseInstant(stringVal(item.get("timestamp"))));
         media.setMediaUrlFetchedAt(Instant.now());
+        media.setLikeCount(intVal(item.get("like_count")));
+        media.setCommentsCount(intVal(item.get("comments_count")));
+        // Prefer media object fields (Meta now exposes shares_count/saved_count on IG Media).
+        media.setSharesCount(intVal(firstNonNull(item.get("shares_count"), item.get("share_count"))));
+        media.setSavesCount(intVal(firstNonNull(item.get("saved_count"), item.get("saves_count"))));
         media.setRawPayload(item);
         if (isNew) {
             media.setAnalysisStatus(MediaAnalysisStatus.NOT_ANALYZED);
         }
+        enrichMetricsFromInsights(media, account.getAccessToken(), enrichment);
         media = mediaRepository.save(media);
 
         if (media.getMediaType() == InstagramMediaType.CAROUSEL_ALBUM) {
@@ -265,6 +278,116 @@ public class InstagramSyncService {
                 childRepository.save(entity);
             }
         }
+
+        syncComments(account, media);
+    }
+
+    private void enrichMetricsFromInsights(
+            InstagramMedia media,
+            String accessToken,
+            SyncEnrichmentState enrichment
+    ) {
+        if (enrichment.insightsDisabled) {
+            return;
+        }
+        boolean needsShares = media.getSharesCount() == null;
+        boolean needsSaves = media.getSavesCount() == null;
+        if (!needsShares && !needsSaves) {
+            // Media fields already provided shares/saves (including explicit 0).
+            media.setInsightsSyncedAt(Instant.now());
+            return;
+        }
+        try {
+            Map<String, Long> insights = graphClient.fetchMediaInsights(media.getIgMediaId(), accessToken);
+            if (needsShares && insights.containsKey("shares")) {
+                media.setSharesCount(toInt(insights.get("shares")));
+            }
+            if (needsSaves && insights.containsKey("saved")) {
+                media.setSavesCount(toInt(insights.get("saved")));
+            }
+            media.setInsightsSyncedAt(Instant.now());
+        } catch (InstagramGraphClient.InsightsPermissionException e) {
+            enrichment.insightsDisabled = true;
+            log.warn("Insights permission missing for account token; skipping remaining insight calls: {}",
+                    e.getMessage());
+        } catch (Exception e) {
+            log.warn("Insights sync skipped for {}: {}", media.getIgMediaId(), e.getMessage());
+        }
+    }
+
+    private static final class SyncEnrichmentState {
+        private boolean insightsDisabled;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncComments(InstagramAccount account, InstagramMedia media) {
+        List<Map<String, Object>> comments;
+        try {
+            comments = graphClient.fetchMediaComments(media.getIgMediaId(), account.getAccessToken());
+        } catch (Exception e) {
+            log.debug("Comments sync skipped for {}: {}", media.getIgMediaId(), e.getMessage());
+            return;
+        }
+        for (Map<String, Object> top : comments) {
+            upsertComment(account.getTenantId(), media.getId(), top, null);
+            Object repliesNode = top.get("replies");
+            if (repliesNode instanceof Map<?, ?> repliesMap) {
+                Object replyData = repliesMap.get("data");
+                if (replyData instanceof List<?> replyList) {
+                    for (Object replyItem : replyList) {
+                        if (replyItem instanceof Map<?, ?> replyMap) {
+                            upsertComment(
+                                    account.getTenantId(),
+                                    media.getId(),
+                                    new LinkedHashMap<>((Map<String, Object>) replyMap),
+                                    stringVal(top.get("id"))
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void upsertComment(
+            UUID tenantId,
+            UUID mediaId,
+            Map<String, Object> item,
+            String parentIgCommentId
+    ) {
+        String igCommentId = stringVal(item.get("id"));
+        if (igCommentId == null) {
+            return;
+        }
+        InstagramMediaComment comment = commentRepository
+                .findByTenantIdAndIgCommentId(tenantId, igCommentId)
+                .orElseGet(InstagramMediaComment::new);
+        comment.setTenantId(tenantId);
+        comment.setInstagramMediaId(mediaId);
+        comment.setIgCommentId(igCommentId);
+        comment.setParentIgCommentId(parentIgCommentId);
+        comment.setUsername(resolveCommentUsername(item));
+        comment.setText(stringVal(item.get("text")));
+        comment.setLikeCount(intVal(item.get("like_count")));
+        comment.setPublishedAt(parseInstant(stringVal(item.get("timestamp"))));
+        comment.setRawPayload(item);
+        commentRepository.save(comment);
+    }
+
+    private static String resolveCommentUsername(Map<String, Object> item) {
+        String username = stringVal(item.get("username"));
+        if (username != null && !username.isBlank()) {
+            return username;
+        }
+        Object from = item.get("from");
+        if (from instanceof Map<?, ?> fromMap && fromMap.get("username") != null) {
+            return fromMap.get("username").toString();
+        }
+        Object user = item.get("user");
+        if (user instanceof Map<?, ?> userMap && userMap.get("username") != null) {
+            return userMap.get("username").toString();
+        }
+        return null;
     }
 
     private static InstagramMediaType parseType(String raw) {
@@ -284,6 +407,12 @@ public class InstagramSyncService {
         }
         try {
             return Instant.parse(raw);
+        } catch (Exception ignored) {
+            // Meta Graph often returns +0000 instead of Z / +00:00
+        }
+        try {
+            String normalized = raw.replaceAll("([+-]\\d{2})(\\d{2})$", "$1:$2");
+            return java.time.OffsetDateTime.parse(normalized).toInstant();
         } catch (Exception e) {
             return null;
         }
@@ -291,6 +420,34 @@ public class InstagramSyncService {
 
     private static String stringVal(Object value) {
         return value == null ? null : value.toString();
+    }
+
+    private static Integer intVal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer toInt(Long value) {
+        if (value == null) {
+            return null;
+        }
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return value.intValue();
+    }
+
+    private static Object firstNonNull(Object a, Object b) {
+        return a != null ? a : b;
     }
 
     private static String trim(String value, int max) {

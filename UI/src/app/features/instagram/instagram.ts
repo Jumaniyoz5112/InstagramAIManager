@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { translateApiError } from '../../core/i18n/api-error';
@@ -8,9 +8,13 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
   InstagramAccount,
   InstagramMedia,
+  InstagramMediaComment,
+  InstagramMediaType,
   InstagramService
 } from '../../core/services/instagram.service';
 import { AppIcon } from '../../shared/ui/icon';
+
+type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 
 @Component({
   selector: 'app-instagram',
@@ -36,8 +40,18 @@ export class InstagramPage implements OnInit {
   protected readonly media = signal<InstagramMedia[]>([]);
   protected readonly mediaPage = signal(0);
   protected readonly mediaTotalPages = signal(0);
+  protected readonly mediaFilter = signal<MediaFilter>('ALL');
   protected readonly selectedMedia = signal<InstagramMedia | null>(null);
   protected readonly loadingDetail = signal(false);
+  protected readonly comments = signal<InstagramMediaComment[]>([]);
+  protected readonly loadingComments = signal(false);
+  protected readonly carouselIndex = signal(0);
+
+  protected readonly mediaFilters: MediaFilter[] = ['ALL', 'IMAGE', 'VIDEO', 'CAROUSEL_ALBUM'];
+
+  protected readonly topLevelComments = computed(() =>
+    this.comments().filter((c) => !c.parentIgCommentId)
+  );
 
   ngOnInit(): void {
     const connected = this.route.snapshot.queryParamMap.get('connected');
@@ -94,10 +108,20 @@ export class InstagramPage implements OnInit {
     this.loadMedia(0);
   }
 
+  protected setMediaFilter(filter: MediaFilter): void {
+    if (this.mediaFilter() === filter) {
+      return;
+    }
+    this.mediaFilter.set(filter);
+    this.loadMedia(0);
+  }
+
   protected loadMedia(page: number): void {
     const accountId = this.selectedAccountId();
+    const filter = this.mediaFilter();
+    const mediaType: InstagramMediaType | null = filter === 'ALL' ? null : filter;
     this.loadingMedia.set(true);
-    this.api.listMedia(accountId, page, 20).subscribe({
+    this.api.listMedia(accountId, page, 20, mediaType).subscribe({
       next: (res) => {
         this.media.set(res.content);
         this.mediaPage.set(res.page);
@@ -166,7 +190,10 @@ export class InstagramPage implements OnInit {
 
   protected openMedia(item: InstagramMedia): void {
     this.loadingDetail.set(true);
+    this.loadingComments.set(true);
     this.selectedMedia.set(item);
+    this.comments.set([]);
+    this.carouselIndex.set(0);
     this.api.getMedia(item.id).subscribe({
       next: (detail) => {
         this.selectedMedia.set(detail);
@@ -177,14 +204,69 @@ export class InstagramPage implements OnInit {
         this.error.set(translateApiError(this.i18n, err, 'instagram.media_load_failed'));
       }
     });
+    this.api.listComments(item.id).subscribe({
+      next: (items) => {
+        this.comments.set(items);
+        this.loadingComments.set(false);
+      },
+      error: (err: unknown) => {
+        this.loadingComments.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.comments_load_failed'));
+      }
+    });
   }
 
   protected closeDetail(): void {
     this.selectedMedia.set(null);
+    this.comments.set([]);
+    this.carouselIndex.set(0);
   }
 
   protected previewUrl(item: InstagramMedia): string | null {
     return item.thumbnailUrl || item.mediaUrl;
+  }
+
+  protected isVideo(type: InstagramMediaType | string | null | undefined): boolean {
+    return type === 'VIDEO' || type === 'REELS';
+  }
+
+  protected metricValue(value: number | null | undefined): string {
+    return value == null ? '—' : String(value);
+  }
+
+  protected filterLabelKey(filter: MediaFilter): string {
+    return `instagram.filter.${filter}`;
+  }
+
+  protected repliesFor(parent: InstagramMediaComment): InstagramMediaComment[] {
+    return this.comments().filter((c) => c.parentIgCommentId === parent.igCommentId);
+  }
+
+  protected carouselChild() {
+    const detail = this.selectedMedia();
+    const children = detail?.children ?? [];
+    if (!children.length) {
+      return null;
+    }
+    const idx = Math.min(Math.max(this.carouselIndex(), 0), children.length - 1);
+    return children[idx];
+  }
+
+  protected prevCarousel(): void {
+    const children = this.selectedMedia()?.children ?? [];
+    if (!children.length) {
+      return;
+    }
+    const next = this.carouselIndex() - 1;
+    this.carouselIndex.set(next < 0 ? children.length - 1 : next);
+  }
+
+  protected nextCarousel(): void {
+    const children = this.selectedMedia()?.children ?? [];
+    if (!children.length) {
+      return;
+    }
+    this.carouselIndex.set((this.carouselIndex() + 1) % children.length);
   }
 
   protected statusKey(status: string): string {

@@ -10,10 +10,13 @@ import org.springframework.web.bind.annotation.RestController;
 import uzeduai.be.access.service.AccessService;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.common.response.PageResponse;
+import uzeduai.be.instagram.domain.InstagramMediaType;
+import uzeduai.be.instagram.dto.InstagramMediaCommentResponse;
 import uzeduai.be.instagram.dto.InstagramMediaResponse;
 import uzeduai.be.instagram.service.InstagramMediaService;
 import uzeduai.be.security.user.CustomUserDetails;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -32,11 +35,12 @@ public class InstagramMediaController {
     public ResponseEntity<ApiResponse<PageResponse<InstagramMediaResponse>>> list(
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam(required = false) UUID accountId,
+            @RequestParam(required = false) InstagramMediaType mediaType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         accessService.requirePage(principal, "INSTAGRAM");
-        return ResponseEntity.ok(ApiResponse.ok(mediaService.list(principal, accountId, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok(mediaService.list(principal, accountId, mediaType, page, size)));
     }
 
     @GetMapping("/{mediaId}")
@@ -46,5 +50,14 @@ public class InstagramMediaController {
     ) {
         accessService.requirePage(principal, "INSTAGRAM");
         return ResponseEntity.ok(ApiResponse.ok(mediaService.get(mediaId, principal)));
+    }
+
+    @GetMapping("/{mediaId}/comments")
+    public ResponseEntity<ApiResponse<List<InstagramMediaCommentResponse>>> comments(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PathVariable UUID mediaId
+    ) {
+        accessService.requirePage(principal, "INSTAGRAM");
+        return ResponseEntity.ok(ApiResponse.ok(mediaService.listComments(mediaId, principal)));
     }
 }

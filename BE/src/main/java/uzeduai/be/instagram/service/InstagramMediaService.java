@@ -8,10 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 import uzeduai.be.common.exception.ApiException;
 import uzeduai.be.common.i18n.MessageKeys;
 import uzeduai.be.common.response.PageResponse;
+import uzeduai.be.instagram.domain.InstagramMediaType;
 import uzeduai.be.instagram.dto.InstagramMediaChildResponse;
+import uzeduai.be.instagram.dto.InstagramMediaCommentResponse;
 import uzeduai.be.instagram.dto.InstagramMediaResponse;
 import uzeduai.be.instagram.entity.InstagramMedia;
 import uzeduai.be.instagram.repository.InstagramMediaChildRepository;
+import uzeduai.be.instagram.repository.InstagramMediaCommentRepository;
 import uzeduai.be.instagram.repository.InstagramMediaRepository;
 import uzeduai.be.security.user.CustomUserDetails;
 import uzeduai.be.tenant.context.TenantMembershipService;
@@ -24,34 +27,50 @@ public class InstagramMediaService {
 
     private final InstagramMediaRepository mediaRepository;
     private final InstagramMediaChildRepository childRepository;
+    private final InstagramMediaCommentRepository commentRepository;
     private final InstagramMediaUrlService mediaUrlService;
     private final TenantMembershipService tenantMembershipService;
 
     public InstagramMediaService(
             InstagramMediaRepository mediaRepository,
             InstagramMediaChildRepository childRepository,
+            InstagramMediaCommentRepository commentRepository,
             InstagramMediaUrlService mediaUrlService,
             TenantMembershipService tenantMembershipService
     ) {
         this.mediaRepository = mediaRepository;
         this.childRepository = childRepository;
+        this.commentRepository = commentRepository;
         this.mediaUrlService = mediaUrlService;
         this.tenantMembershipService = tenantMembershipService;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<InstagramMediaResponse> list(CustomUserDetails principal, UUID accountId, int page, int size) {
+    public PageResponse<InstagramMediaResponse> list(
+            CustomUserDetails principal,
+            UUID accountId,
+            InstagramMediaType mediaType,
+            int page,
+            int size
+    ) {
         requireWorkspace(principal);
         tenantMembershipService.requireMembership(principal.getTenantId(), principal.getId());
         int safeSize = Math.min(Math.max(size, 1), 100);
         int safePage = Math.max(page, 0);
+        PageRequest pageable = PageRequest.of(safePage, safeSize);
         Page<InstagramMedia> result;
         if (accountId != null) {
-            result = mediaRepository.findByTenantIdAndInstagramAccountIdOrderByPublishedAtDesc(
-                    principal.getTenantId(), accountId, PageRequest.of(safePage, safeSize));
+            result = mediaType == null
+                    ? mediaRepository.findByTenantIdAndInstagramAccountIdOrderByPublishedAtDesc(
+                            principal.getTenantId(), accountId, pageable)
+                    : mediaRepository.findByTenantIdAndInstagramAccountIdAndMediaTypeOrderByPublishedAtDesc(
+                            principal.getTenantId(), accountId, mediaType, pageable);
         } else {
-            result = mediaRepository.findByTenantIdAndWorkspaceIdOrderByPublishedAtDesc(
-                    principal.getTenantId(), principal.getWorkspaceId(), PageRequest.of(safePage, safeSize));
+            result = mediaType == null
+                    ? mediaRepository.findByTenantIdAndWorkspaceIdOrderByPublishedAtDesc(
+                            principal.getTenantId(), principal.getWorkspaceId(), pageable)
+                    : mediaRepository.findByTenantIdAndWorkspaceIdAndMediaTypeOrderByPublishedAtDesc(
+                            principal.getTenantId(), principal.getWorkspaceId(), mediaType, pageable);
         }
         List<InstagramMediaResponse> content = result.getContent().stream()
                 .filter(m -> m.getWorkspaceId().equals(principal.getWorkspaceId()))
@@ -62,6 +81,30 @@ public class InstagramMediaService {
 
     @Transactional
     public InstagramMediaResponse get(UUID mediaId, CustomUserDetails principal) {
+        InstagramMedia media = requireMedia(mediaId, principal);
+        media = mediaUrlService.refreshUrlIfExpired(media);
+        return toResponse(media, true);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InstagramMediaCommentResponse> listComments(UUID mediaId, CustomUserDetails principal) {
+        InstagramMedia media = requireMedia(mediaId, principal);
+        return commentRepository
+                .findByTenantIdAndInstagramMediaIdOrderByPublishedAtAsc(principal.getTenantId(), media.getId())
+                .stream()
+                .map(c -> new InstagramMediaCommentResponse(
+                        c.getId(),
+                        c.getIgCommentId(),
+                        c.getParentIgCommentId(),
+                        c.getUsername(),
+                        c.getText(),
+                        c.getLikeCount(),
+                        c.getPublishedAt()
+                ))
+                .toList();
+    }
+
+    private InstagramMedia requireMedia(UUID mediaId, CustomUserDetails principal) {
         requireWorkspace(principal);
         tenantMembershipService.requireMembership(principal.getTenantId(), principal.getId());
         InstagramMedia media = mediaRepository.findByIdAndTenantId(mediaId, principal.getTenantId())
@@ -69,8 +112,7 @@ public class InstagramMediaService {
         if (!media.getWorkspaceId().equals(principal.getWorkspaceId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, MessageKeys.WORKSPACE_NOT_MEMBER);
         }
-        media = mediaUrlService.refreshUrlIfExpired(media);
-        return toResponse(media, true);
+        return media;
     }
 
     private InstagramMediaResponse toResponse(InstagramMedia media, boolean includeChildren) {
@@ -98,6 +140,10 @@ public class InstagramMediaService {
                 media.getPermalink(),
                 media.getPublishedAt(),
                 media.getAnalysisStatus(),
+                media.getLikeCount(),
+                media.getCommentsCount(),
+                media.getSharesCount(),
+                media.getSavesCount(),
                 children
         );
     }
