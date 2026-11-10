@@ -40,6 +40,7 @@ public final class MessageKeys {
     public static final String INSTAGRAM_MEDIA_NOT_FOUND = "error.instagram.media_not_found";
     public static final String INSTAGRAM_SYNC_IN_PROGRESS = "error.instagram.sync_in_progress";
     public static final String INSTAGRAM_NEEDS_REAUTH = "error.instagram.needs_reauth";
+    public static final String INSTAGRAM_ACCOUNT_DISCOVERY_FAILED = "error.instagram.account_discovery_failed";
 
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";

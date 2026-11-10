@@ -2,19 +2,17 @@ package uzeduai.be.common.crypto;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import org.springframework.stereotype.Component;
 
 @Converter
-@Component
 public class EncryptedStringConverter implements AttributeConverter<String, String> {
 
-    private static AesGcmStringEncryptor encryptor;
+    private static volatile AesGcmStringEncryptor encryptor;
 
-    public EncryptedStringConverter(AesGcmStringEncryptor encryptor) {
+    /** Called by {@link CryptoJpaInitializer} so Hibernate-created instances can encrypt. */
+    public static void setEncryptor(AesGcmStringEncryptor encryptor) {
         EncryptedStringConverter.encryptor = encryptor;
     }
 
-    /** JPA may instantiate without Spring; fall back to the injected static. */
     public EncryptedStringConverter() {
     }
 

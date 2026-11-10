@@ -8,11 +8,18 @@ public class InstagramProperties {
     private boolean enabled = false;
     private String appId = "";
     private String appSecret = "";
+    /**
+     * Meta Facebook Login for Business configuration ID (Unified Login).
+     * When set, OAuth uses facebook.com dialog + graph.facebook.com instead of Instagram Login.
+     */
+    private String configId = "";
     private String redirectUri = "http://localhost:8080/api/v1/instagram/oauth/callback";
     /** Where browser lands after OAuth callback (Angular UI). */
     private String frontendSuccessUrl = "http://localhost:4200/app/instagram";
     private String apiBaseUrl = "https://graph.instagram.com";
     private String authorizeBaseUrl = "https://api.instagram.com/oauth/authorize";
+    private String facebookAuthorizeBaseUrl = "https://www.facebook.com";
+    private String facebookGraphBaseUrl = "https://graph.facebook.com";
     private String graphVersion = "v21.0";
     private String scopes = "instagram_business_basic";
     private int oauthStateTtlMinutes = 10;
@@ -45,6 +52,18 @@ public class InstagramProperties {
         this.appSecret = appSecret;
     }
 
+    public String getConfigId() {
+        return configId;
+    }
+
+    public void setConfigId(String configId) {
+        this.configId = configId;
+    }
+
+    public boolean isUnifiedLogin() {
+        return configId != null && !configId.isBlank();
+    }
+
     public String getRedirectUri() {
         return redirectUri;
     }
@@ -75,6 +94,22 @@ public class InstagramProperties {
 
     public void setAuthorizeBaseUrl(String authorizeBaseUrl) {
         this.authorizeBaseUrl = authorizeBaseUrl;
+    }
+
+    public String getFacebookAuthorizeBaseUrl() {
+        return facebookAuthorizeBaseUrl;
+    }
+
+    public void setFacebookAuthorizeBaseUrl(String facebookAuthorizeBaseUrl) {
+        this.facebookAuthorizeBaseUrl = facebookAuthorizeBaseUrl;
+    }
+
+    public String getFacebookGraphBaseUrl() {
+        return facebookGraphBaseUrl;
+    }
+
+    public void setFacebookGraphBaseUrl(String facebookGraphBaseUrl) {
+        this.facebookGraphBaseUrl = facebookGraphBaseUrl;
     }
 
     public String getGraphVersion() {

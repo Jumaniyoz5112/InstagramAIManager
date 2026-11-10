@@ -174,6 +174,8 @@ export const EN = {
   'error.instagram.media_not_found': 'Media not found',
   'error.instagram.sync_in_progress': 'Sync is already in progress',
   'error.instagram.needs_reauth': 'Reconnect your Instagram account',
+  'error.instagram.account_discovery_failed':
+    'Could not find an Instagram account. Link a Business/Creator account to a Facebook Page and grant pages_show_list in the Meta App.',
   'error.generic': 'Something went wrong',
   'success.auth.logout': 'Signed out'
 } as const;

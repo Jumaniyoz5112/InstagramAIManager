@@ -21,7 +21,14 @@ public interface InstagramGraphClient {
     record TokenExchangeResult(String accessToken, Long expiresInSeconds) {
     }
 
-    record IgUserProfile(String id, String username, String accountType) {
+    /**
+     * @param accessToken optional Page access token for Unified/Facebook Login path;
+     *                    null means keep the user token from code exchange.
+     */
+    record IgUserProfile(String id, String username, String accountType, String accessToken) {
+        public IgUserProfile(String id, String username, String accountType) {
+            this(id, username, accountType, null);
+        }
     }
 
     record MediaPage(List<Map<String, Object>> data, String nextAfter) {

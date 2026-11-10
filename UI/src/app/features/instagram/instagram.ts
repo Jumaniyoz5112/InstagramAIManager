@@ -41,8 +41,18 @@ export class InstagramPage implements OnInit {
 
   ngOnInit(): void {
     const connected = this.route.snapshot.queryParamMap.get('connected');
+    const igError = this.route.snapshot.queryParamMap.get('ig_error');
     if (connected) {
       this.notice.set(this.i18n.t('instagram.connected'));
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true
+      });
+    } else if (igError) {
+      const key = decodeURIComponent(igError);
+      const translated = this.i18n.t(key);
+      this.error.set(translated !== key ? translated : this.i18n.t('instagram.connect_failed'));
       void this.router.navigate([], {
         relativeTo: this.route,
         queryParams: {},

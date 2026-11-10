@@ -2,11 +2,11 @@
 
 > Loyihaning asosiy texnik konteksti. Cursor va inson bir xil arxitektura bo‘yicha ishlashi shart.
 
-**Oxirgi yangilanish:** 2026-11-03  
+**Oxirgi yangilanish:** 2026-11-10  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**  
+**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; Meta live OAuth (Unified Login) sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE + media sync tasdiqlandi  
 **To‘xtatilgan:** Media Management CRUD, Instagram **publishing**, AI Agent / Video Factory  
-**Keyingi (ruxsat bilan):** Meta live OAuth (App credentials); Platform Admin UI; M2 insights  
+**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; M2 insights  
 
 ---
 
@@ -51,17 +51,17 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ### Instagram (M0/M1 BE+UI)
 
-- Default **off**: `app.instagram.enabled=false` / `INSTAGRAM_ENABLED`
-- Crypto: `IG_TOKEN_ENCRYPTION_KEY` → AES-GCM (`EncryptedStringConverter` on account tokens)
+- Default **off**: `app.instagram.enabled=false` / `INSTAGRAM_ENABLED` (local `.env` da live test uchun `true`)
+- Crypto: `IG_TOKEN_ENCRYPTION_KEY` → AES-GCM; Hibernate `@Convert` Spring bean emas — `CryptoJpaInitializer` static encryptor wire qiladi
 - Storage: `STORAGE_ROOT` local FS (`StoragePort`) — MinIO keyin
 - Page: `INSTAGRAM` (`/app/instagram`) — grant via Access; PLATFORM_ADMIN auto
-- OAuth: `POST /api/v1/instagram/oauth/start`, `GET .../callback` (permitAll + state)
-- Callback redirect: `INSTAGRAM_FRONTEND_SUCCESS_URL` (default `http://localhost:4200/app/instagram`)
+- OAuth: Unified Login `config_id` (`POST /api/v1/instagram/oauth/start`, callback permitAll)
+- Same-portfolio Meta: user OAuth `assigned_instagram_accounts` bo‘sh bo‘lishi mumkin; System User Assign + token yoki **dev-only** `POST /api/v1/instagram/dev/seed-account` (`@Profile("dev")`)
+- Media Graph: Facebook Login / SUAT tokenlar uchun `graph.facebook.com` + **Bearer** (query `access_token` mangle qilmasin); `graph.instagram.com` faqat Instagram Login tokenlari
 - Accounts: `GET /api/v1/instagram/accounts`, `POST .../{id}/sync`, `DELETE .../{id}`
 - Media: `GET /api/v1/instagram/media`, `GET .../{mediaId}`
-- Sync: OAuth → PENDING job; scheduler + manual trigger; token refresh cron
-- Graph: `RestInstagramGraphClient` when enabled, else `NoopInstagramGraphClient`
-- UI: `features/instagram` + `InstagramService`; nav via page grant; i18n uz/ru/en
+- Sync: enqueue → scheduler; live verified: `@mashhura01_2009` ACTIVE, media synced
+- UI: `features/instagram`; i18n uz/ru/en
 - Prod secrets: `JWT_SECRET` + `IG_TOKEN_ENCRYPTION_KEY` (dev crypto default rejected in prod)
 
 ### Platform Admin (H1, read-only)

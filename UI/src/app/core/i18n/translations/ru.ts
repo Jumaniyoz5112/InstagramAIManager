@@ -174,6 +174,8 @@ export const RU = {
   'error.instagram.media_not_found': 'Медиа не найдено',
   'error.instagram.sync_in_progress': 'Sync уже выполняется',
   'error.instagram.needs_reauth': 'Подключите Instagram аккаунт заново',
+  'error.instagram.account_discovery_failed':
+    'Аккаунт Instagram не найден. Нужен Business/Creator, привязанный к Facebook Page, и разрешение pages_show_list в Meta App.',
   'error.generic': 'Произошла ошибка',
   'success.auth.logout': 'Вы вышли из системы'
 } as const;

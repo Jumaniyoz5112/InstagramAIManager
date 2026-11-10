@@ -8,11 +8,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
+import uzeduai.be.common.exception.ApiException;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.instagram.config.InstagramProperties;
 import uzeduai.be.instagram.dto.InstagramOauthStartResponse;
 import uzeduai.be.instagram.service.InstagramOauthService;
 import uzeduai.be.security.user.CustomUserDetails;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/v1/instagram/oauth")
@@ -35,12 +39,32 @@ public class InstagramOauthController {
 
     @GetMapping("/callback")
     public RedirectView callback(
-            @RequestParam("code") String code,
-            @RequestParam("state") String state
+            @RequestParam(value = "code", required = false) String code,
+            @RequestParam(value = "state", required = false) String state,
+            @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "error_description", required = false) String errorDescription
     ) {
-        var account = oauthService.handleCallback(code, state);
+        if (error != null && !error.isBlank()) {
+            return redirectError(errorDescription != null && !errorDescription.isBlank()
+                    ? errorDescription
+                    : error);
+        }
+        try {
+            var account = oauthService.handleCallback(code, state);
+            String base = properties.getFrontendSuccessUrl();
+            String sep = base.contains("?") ? "&" : "?";
+            return new RedirectView(base + sep + "connected=" + account.getId());
+        } catch (ApiException ex) {
+            return redirectError(ex.getMessageKey());
+        } catch (Exception ex) {
+            return redirectError("error.server.internal");
+        }
+    }
+
+    private RedirectView redirectError(String messageKeyOrText) {
         String base = properties.getFrontendSuccessUrl();
         String sep = base.contains("?") ? "&" : "?";
-        return new RedirectView(base + sep + "connected=" + account.getId());
+        String encoded = URLEncoder.encode(messageKeyOrText, StandardCharsets.UTF_8);
+        return new RedirectView(base + sep + "ig_error=" + encoded);
     }
 }

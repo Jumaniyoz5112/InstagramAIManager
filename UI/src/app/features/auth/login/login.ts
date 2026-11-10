@@ -6,6 +6,7 @@ import { firstAllowedPath } from '../../../core/access/page-access';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { translateApiError } from '../../../core/i18n/api-error';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -22,8 +23,8 @@ export class LoginPage {
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', Validators.required]
+    email: [environment.production ? '' : 'admin@local.dev', [Validators.required, Validators.email]],
+    password: [environment.production ? '' : '0110', Validators.required]
   });
 
   protected submit(): void {

@@ -174,6 +174,8 @@ export const UZ = {
   'error.instagram.media_not_found': 'Media topilmadi',
   'error.instagram.sync_in_progress': 'Sync allaqachon davom etmoqda',
   'error.instagram.needs_reauth': 'Instagram hisobini qayta ulang',
+  'error.instagram.account_discovery_failed':
+    'Instagram hisobi topilmadi. Business/Creator hisob Facebook Page ga ulangan bo‘lishi va Meta App da pages_show_list ruxsati kerak.',
   'error.generic': 'Xatolik yuz berdi',
   'success.auth.logout': 'Chiqildi'
 } as const;

@@ -74,15 +74,32 @@ public class InstagramOauthService {
         state.setExpiresAt(Instant.now().plusSeconds(properties.getOauthStateTtlMinutes() * 60L));
         oauthStateRepository.save(state);
 
-        String url = UriComponentsBuilder
-                .fromUriString(properties.getAuthorizeBaseUrl())
-                .queryParam("client_id", properties.getAppId())
-                .queryParam("redirect_uri", properties.getRedirectUri())
-                .queryParam("scope", properties.getScopes())
-                .queryParam("response_type", "code")
-                .queryParam("state", stateValue)
-                .build(true)
-                .toUriString();
+        String url;
+        if (properties.isUnifiedLogin()) {
+            // With config_id, scopes come from the Meta Login Configuration — do not append scope=
+            // (extra scopes can make Facebook Login return "Feature Unavailable").
+            url = UriComponentsBuilder
+                    .fromUriString(properties.getFacebookAuthorizeBaseUrl()
+                            + "/" + properties.getGraphVersion() + "/dialog/oauth")
+                    .queryParam("client_id", properties.getAppId())
+                    .queryParam("config_id", properties.getConfigId())
+                    .queryParam("redirect_uri", properties.getRedirectUri())
+                    .queryParam("response_type", "code")
+                    .queryParam("override_default_response_type", "true")
+                    .queryParam("state", stateValue)
+                    .build(true)
+                    .toUriString();
+        } else {
+            url = UriComponentsBuilder
+                    .fromUriString(properties.getAuthorizeBaseUrl())
+                    .queryParam("client_id", properties.getAppId())
+                    .queryParam("redirect_uri", properties.getRedirectUri())
+                    .queryParam("scope", properties.getScopes())
+                    .queryParam("response_type", "code")
+                    .queryParam("state", stateValue)
+                    .build(true)
+                    .toUriString();
+        }
 
         return new InstagramOauthStartResponse(url, stateValue);
     }
@@ -101,7 +118,15 @@ public class InstagramOauthService {
         tenantMembershipService.requireMembership(state.getTenantId(), state.getUserId());
 
         var tokens = graphClient.exchangeCode(code);
-        var profile = graphClient.fetchMe(tokens.accessToken());
+        InstagramGraphClient.IgUserProfile profile;
+        try {
+            profile = graphClient.fetchMe(tokens.accessToken());
+        } catch (RuntimeException ex) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, MessageKeys.INSTAGRAM_ACCOUNT_DISCOVERY_FAILED);
+        }
+        if (profile.id() == null || profile.id().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, MessageKeys.INSTAGRAM_ACCOUNT_DISCOVERY_FAILED);
+        }
 
         InstagramAccount account = accountRepository
                 .findByTenantIdAndIgUserId(state.getTenantId(), profile.id())
@@ -111,11 +136,19 @@ public class InstagramOauthService {
         account.setIgUserId(profile.id());
         account.setUsername(profile.username());
         account.setAccountType(profile.accountType());
-        account.setAccessToken(tokens.accessToken());
-        if (tokens.expiresInSeconds() != null) {
+        String accessToken = profile.accessToken() != null && !profile.accessToken().isBlank()
+                ? profile.accessToken()
+                : tokens.accessToken();
+        account.setAccessToken(accessToken);
+        if (tokens.expiresInSeconds() != null && profile.accessToken() == null) {
             account.setTokenExpiresAt(Instant.now().plusSeconds(tokens.expiresInSeconds()));
+        } else if (profile.accessToken() != null) {
+            // Page tokens from /me/accounts typically do not include expires_in here.
+            account.setTokenExpiresAt(null);
         }
-        account.setScopes(properties.getScopes());
+        account.setScopes(properties.isUnifiedLogin()
+                ? "unified:" + properties.getConfigId()
+                : properties.getScopes());
         account.setStatus(InstagramAccountStatus.ACTIVE);
         account.setCreatedByUserId(state.getUserId());
         account = accountRepository.save(account);
