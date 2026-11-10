@@ -154,6 +154,25 @@ export const UZ = {
   'instagram.status.NEEDS_REAUTH': 'Qayta ulash kerak',
   'instagram.status.DISCONNECTED': 'Uzilgan',
   'instagram.status.ERROR': 'Xato',
+  'instagram.publish': 'Post qo‘shish',
+  'instagram.publish_title': 'Instagramga joylash',
+  'instagram.publish_caption': 'Caption',
+  'instagram.publish_caption_ph': 'Matn (storyda odatda ishlatilmaydi)',
+  'instagram.publish_files': 'Fayllar',
+  'instagram.publish_hint': 'Rasm: JPEG. Video/Reels/Story: MP4 yoki MOV. Karusel: 2–10 ta.',
+  'instagram.publish_submit': 'Chop etish',
+  'instagram.publishing': 'Chop etilmoqda…',
+  'instagram.publish_ok': 'Post Instagramga joylandi. Sync ishga tushdi.',
+  'instagram.publish_failed': 'Post joylash muvaffaqiyatsiz',
+  'instagram.publish_need_files': 'Kamida bitta fayl tanlang',
+  'instagram.need_account': 'Avval Instagram hisobini tanlang',
+  'instagram.publish_public_note':
+    'Meta faylni public HTTPS URL orqali oladi — tunnel (INSTAGRAM_PUBLIC_MEDIA_BASE_URL) kerak.',
+  'instagram.publish.type.FEED_IMAGE': 'Rasm',
+  'instagram.publish.type.REELS': 'Reels',
+  'instagram.publish.type.STORY_IMAGE': 'Story rasm',
+  'instagram.publish.type.STORY_VIDEO': 'Story video',
+  'instagram.publish.type.CAROUSEL': 'Karusel',
 
   'error.auth.email_taken': 'Bu email allaqachon ro‘yxatdan o‘tgan',
   'error.auth.tenant_slug_taken': 'Bu tenant slug band',
@@ -188,6 +207,15 @@ export const UZ = {
   'error.instagram.needs_reauth': 'Instagram hisobini qayta ulang',
   'error.instagram.account_discovery_failed':
     'Instagram hisobi topilmadi. Business/Creator hisob Facebook Page ga ulangan bo‘lishi va Meta App da pages_show_list ruxsati kerak.',
+  'error.instagram.publish_disabled': 'Instagram publishing o‘chirilgan',
+  'error.instagram.publish_not_found': 'Publish job topilmadi',
+  'error.instagram.publish_invalid': 'Fayl turi yoki soni noto‘g‘ri (JPEG / MP4-MOV; karusel 2–10)',
+  'error.instagram.publish_public_url_required':
+    'Public media URL yo‘q. INSTAGRAM_PUBLIC_MEDIA_BASE_URL ni tunnel HTTPS manziliga qo‘ying.',
+  'error.instagram.publish_limit': 'Instagram publish limiti (24 soat) tugagan',
+  'error.instagram.publish_failed': 'Instagramga joylashda xato',
+  'error.instagram.publish_account_inactive': 'Faqat faol hisobga post joylash mumkin',
+  'error.instagram.publish_asset_not_found': 'Staging media topilmadi',
   'error.generic': 'Xatolik yuz berdi',
   'success.auth.logout': 'Chiqildi'
 } as const;

@@ -37,7 +37,30 @@ public interface InstagramGraphClient {
      */
     List<Map<String, Object>> fetchMediaComments(String igMediaId, String accessToken);
 
+    /**
+     * Create an IG media container (image / reel / story / carousel child or parent).
+     * {@code params} are Graph form fields (image_url, video_url, media_type, caption, …).
+     *
+     * @return container id
+     */
+    String createMediaContainer(String igUserId, String accessToken, Map<String, String> params);
+
+    /** Poll container processing status ({@code FINISHED}, {@code IN_PROGRESS}, {@code ERROR}, …). */
+    ContainerStatus fetchContainerStatus(String containerId, String accessToken);
+
+    /** Publish a finished container; returns published IG media id. */
+    String publishMedia(String igUserId, String accessToken, String creationId);
+
+    /** Rolling 24h content publishing quota. */
+    PublishingLimit fetchContentPublishingLimit(String igUserId, String accessToken);
+
     record TokenExchangeResult(String accessToken, Long expiresInSeconds) {
+    }
+
+    record ContainerStatus(String statusCode, String status) {
+    }
+
+    record PublishingLimit(int quotaTotal, int quotaUsage) {
     }
 
     /**

@@ -1,188 +1,338 @@
-<section class="space-y-6">
-  <div class="flex flex-wrap items-start justify-between gap-4">
-    <div class="max-w-xl">
-      <p class="text-xs font-bold uppercase tracking-[0.12em] text-white/40">{{ 'instagram.eyebrow' | t }}</p>
-      <h2 class="mt-1 font-display text-2xl font-semibold text-white">{{ 'instagram.title' | t }}</h2>
-      <p class="mt-2 text-sm text-white/55">{{ 'instagram.subtitle' | t }}</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="btn-ghost !px-3 !py-1.5 text-xs" (click)="reload()">
-        {{ 'action.refresh' | t }}
-      </button>
-      <button
-        type="button"
-        class="btn-primary"
-        [disabled]="connecting()"
-        (click)="connect()"
-      >
-        {{ connecting() ? ('instagram.connecting' | t) : ('instagram.connect' | t) }}
-      </button>
+<section class="flex min-h-0 flex-1 flex-col gap-5 lg:h-full lg:overflow-hidden">
+  <div
+    class="relative shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-panel via-panel to-ink-soft p-5 sm:p-6"
+  >
+    <div
+      class="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-accent/15 blur-3xl"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-accent-2/10 blur-3xl"
+      aria-hidden="true"
+    ></div>
+
+    <div class="relative flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-xl">
+        <div class="flex items-center gap-2 text-accent-2">
+          <app-icon name="instagram" [size]="18" />
+          <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/45">
+            {{ 'instagram.eyebrow' | t }}
+          </p>
+        </div>
+        <h2 class="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          {{ 'instagram.title' | t }}
+        </h2>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" class="btn-ghost !px-3 !py-2 text-xs" (click)="reload()">
+          {{ 'action.refresh' | t }}
+        </button>
+        <button
+          type="button"
+          class="btn-ghost !px-3 !py-2 text-xs"
+          [disabled]="!selectedAccountId()"
+          (click)="togglePublish()"
+        >
+          {{ 'instagram.publish' | t }}
+        </button>
+        <button type="button" class="btn-primary" [disabled]="connecting()" (click)="connect()">
+          <app-icon name="instagram" [size]="16" />
+          {{ connecting() ? ('instagram.connecting' | t) : ('instagram.connect' | t) }}
+        </button>
+      </div>
     </div>
   </div>
 
-  @if (!auth.currentUser()?.activeWorkspaceId) {
-    <p class="rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
-      {{ 'instagram.need_workspace' | t }}
-    </p>
+  @if (showPublish()) {
+    <div class="surface-card shrink-0 space-y-4 p-4 sm:p-5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="font-display text-base font-semibold text-white">{{ 'instagram.publish_title' | t }}</h3>
+        <button type="button" class="btn-ghost !px-2.5 !py-1 text-xs" (click)="togglePublish()">
+          {{ 'action.close' | t }}
+        </button>
+      </div>
+
+      <div class="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1">
+        @for (type of publishTypes; track type) {
+          <button
+            type="button"
+            class="rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
+            [class.bg-white/12]="publishType() === type"
+            [class.text-white]="publishType() === type"
+            [class.text-white/45]="publishType() !== type"
+            (click)="setPublishType(type)"
+          >
+            {{ publishTypeKey(type) | t }}
+          </button>
+        }
+      </div>
+
+      <label class="block space-y-1.5">
+        <span class="text-xs font-semibold uppercase tracking-wide text-white/40">
+          {{ 'instagram.publish_caption' | t }}
+        </span>
+        <textarea
+          class="field min-h-24 resize-y"
+          rows="3"
+          [value]="publishCaption()"
+          (input)="publishCaptionChange($event)"
+          [placeholder]="'instagram.publish_caption_ph' | t"
+        ></textarea>
+      </label>
+
+      <label class="block space-y-1.5">
+        <span class="text-xs font-semibold uppercase tracking-wide text-white/40">
+          {{ 'instagram.publish_files' | t }}
+        </span>
+        <input
+          type="file"
+          class="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-white/15"
+          [accept]="publishAccept()"
+          [multiple]="publishMultiple()"
+          (change)="onPublishFilesSelected($event)"
+        />
+        <p class="text-xs text-white/40">
+          {{ 'instagram.publish_hint' | t }}
+          @if (publishFiles().length) {
+            <span class="text-white/60"> · {{ publishFiles().length }} file(s)</span>
+          }
+        </p>
+      </label>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="publishing() || !selectedAccountId()"
+          (click)="submitPublish()"
+        >
+          {{ publishing() ? ('instagram.publishing' | t) : ('instagram.publish_submit' | t) }}
+        </button>
+        <p class="text-xs text-white/40">{{ 'instagram.publish_public_note' | t }}</p>
+      </div>
+    </div>
   }
 
-  @if (error()) {
-    <p class="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
-      {{ error() }}
-    </p>
+  @if (!auth.currentUser()?.activeWorkspaceId || error() || notice()) {
+    <div class="shrink-0 space-y-2">
+      @if (!auth.currentUser()?.activeWorkspaceId) {
+        <p class="rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+          {{ 'instagram.need_workspace' | t }}
+        </p>
+      }
+      @if (error()) {
+        <p class="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+          {{ error() }}
+        </p>
+      }
+      @if (notice()) {
+        <p class="rounded-xl border border-accent-2/30 bg-accent-2/10 px-3 py-2 text-sm text-accent-2">
+          {{ notice() }}
+        </p>
+      }
+    </div>
   }
 
-  @if (notice()) {
-    <p class="rounded-xl border border-accent-2/30 bg-accent-2/10 px-3 py-2 text-sm text-accent-2">
-      {{ notice() }}
-    </p>
-  }
-
-  <div class="grid gap-5 xl:grid-cols-[320px_1fr]">
-    <div class="surface-card p-5">
-      <h3 class="mb-4 font-display text-lg font-semibold text-white">{{ 'instagram.accounts' | t }}</h3>
+  <div class="grid min-h-0 flex-1 items-stretch gap-4 lg:overflow-hidden xl:grid-cols-[300px_1fr]">
+    <aside class="surface-card flex max-h-[min(50dvh,420px)] min-h-0 flex-col overflow-hidden lg:max-h-none">
+      <div class="shrink-0 border-b border-white/10 px-4 py-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="font-display text-base font-semibold text-white">{{ 'instagram.accounts' | t }}</h3>
+          <span class="rounded-lg bg-white/8 px-2 py-0.5 text-[11px] font-semibold text-white/50">
+            {{ accounts().length }}
+          </span>
+        </div>
+      </div>
 
       @if (loadingAccounts()) {
-        <p class="py-8 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+        <p class="px-4 py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
       } @else {
-        <ul class="space-y-3">
+        <ul class="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2">
           @for (a of accounts(); track a.id) {
-            <li
-              class="rounded-xl border px-4 py-3 transition"
-              [class.border-accent/40]="selectedAccountId() === a.id"
-              [class.bg-accent/10]="selectedAccountId() === a.id"
-              [class.border-white/8]="selectedAccountId() !== a.id"
-              [class.bg-white/[0.04]]="selectedAccountId() !== a.id"
-            >
-              <button type="button" class="w-full text-left" (click)="selectAccount(a.id)">
-                <p class="truncate font-semibold text-white">{{ '@' + (a.username || a.igUserId) }}</p>
-                <p class="mt-1 text-xs text-white/45">
-                  {{ statusKey(a.status) | t }}
-                  @if (a.lastSyncedAt) {
-                    · {{ a.lastSyncedAt | date: 'short' }}
-                  }
-                </p>
-              </button>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  class="btn-ghost !px-2.5 !py-1 text-[11px]"
-                  [disabled]="syncingId() === a.id || a.status === 'DISCONNECTED'"
-                  (click)="sync(a.id)"
-                >
-                  {{ syncingId() === a.id ? ('instagram.syncing' | t) : ('instagram.sync' | t) }}
+            <li>
+              <div
+                class="rounded-xl border p-3 transition"
+                [class.border-accent-2/35]="selectedAccountId() === a.id"
+                [class.bg-accent-2/10]="selectedAccountId() === a.id"
+                [class.border-transparent]="selectedAccountId() !== a.id"
+                [class.hover:bg-white/[0.04]]="selectedAccountId() !== a.id"
+              >
+                <button type="button" class="flex w-full items-start gap-3 text-left" (click)="selectAccount(a.id)">
+                  <span
+                    class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/80 to-accent-2/70 text-xs font-bold text-white shadow-[0_8px_20px_-10px_rgba(255,77,109,0.8)]"
+                  >
+                    {{ accountInitials(a) }}
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate font-semibold text-white">
+                      {{ '@' + (a.username || a.igUserId) }}
+                    </span>
+                    <span class="mt-1.5 flex flex-wrap items-center gap-2">
+                      <span
+                        class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                        [class]="statusTone(a.status)"
+                      >
+                        {{ statusKey(a.status) | t }}
+                      </span>
+                      @if (a.lastSyncedAt) {
+                        <span class="text-[11px] text-white/40">{{ a.lastSyncedAt | date: 'short' }}</span>
+                      }
+                    </span>
+                  </span>
                 </button>
-                <button
-                  type="button"
-                  class="btn-ghost !px-2.5 !py-1 text-[11px] text-accent"
-                  (click)="disconnect(a.id)"
-                >
-                  {{ 'instagram.disconnect' | t }}
-                </button>
+                <div class="mt-3 flex gap-2 border-t border-white/8 pt-3">
+                  <button
+                    type="button"
+                    class="btn-ghost !flex-1 !px-2 !py-1.5 text-[11px]"
+                    [disabled]="syncingId() === a.id || a.status === 'DISCONNECTED'"
+                    (click)="sync(a.id)"
+                  >
+                    {{ syncingId() === a.id ? ('instagram.syncing' | t) : ('instagram.sync' | t) }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-ghost !px-2.5 !py-1.5 text-[11px] text-accent hover:text-accent"
+                    (click)="disconnect(a.id)"
+                  >
+                    {{ 'instagram.disconnect' | t }}
+                  </button>
+                </div>
               </div>
             </li>
           } @empty {
-            <li class="rounded-xl border border-dashed border-white/12 px-4 py-10 text-center text-sm text-white/45">
+            <li class="m-2 rounded-xl border border-dashed border-white/12 px-4 py-12 text-center text-sm text-white/45">
               {{ 'instagram.accounts_empty' | t }}
             </li>
           }
         </ul>
       }
-    </div>
+    </aside>
 
-    <div class="surface-card p-5">
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 class="font-display text-lg font-semibold text-white">{{ 'instagram.media' | t }}</h3>
-        @if (mediaTotalPages() > 1) {
-          <div class="flex items-center gap-2 text-xs text-white/50">
-            <button
-              type="button"
-              class="btn-ghost !px-2 !py-1"
-              [disabled]="mediaPage() <= 0 || loadingMedia()"
-              (click)="loadMedia(mediaPage() - 1)"
-            >
-              ←
-            </button>
-            <span>{{ mediaPage() + 1 }} / {{ mediaTotalPages() }}</span>
-            <button
-              type="button"
-              class="btn-ghost !px-2 !py-1"
-              [disabled]="mediaPage() + 1 >= mediaTotalPages() || loadingMedia()"
-              (click)="loadMedia(mediaPage() + 1)"
-            >
-              →
-            </button>
+    <section class="surface-card flex min-h-0 flex-col overflow-hidden">
+      <div class="shrink-0 space-y-3 border-b border-white/10 px-4 py-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <h3 class="font-display text-base font-semibold text-white">{{ 'instagram.media' | t }}</h3>
+            @if (selectedAccount(); as acc) {
+              <span class="hidden text-sm text-white/35 sm:inline">@{{ acc.username || acc.igUserId }}</span>
+            }
           </div>
-        }
-      </div>
-
-      <div class="mb-4 flex flex-wrap gap-2">
-        @for (f of mediaFilters; track f) {
-          <button
-            type="button"
-            class="btn-ghost !px-2.5 !py-1 text-[11px]"
-            [class.!border-accent/40]="mediaFilter() === f"
-            [class.!bg-accent/10]="mediaFilter() === f"
-            (click)="setMediaFilter(f)"
-          >
-            {{ filterLabelKey(f) | t }}
-          </button>
-        }
-      </div>
-
-      @if (loadingMedia()) {
-        <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
-      } @else {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          @for (m of media(); track m.id) {
-            <button
-              type="button"
-              class="overflow-hidden rounded-xl border border-white/8 bg-white/[0.04] text-left transition hover:border-accent/35"
-              (click)="openMedia(m)"
-            >
-              <div class="aspect-square bg-black/30">
-                @if (previewUrl(m); as url) {
-                  <img [src]="url" [alt]="m.caption || m.igMediaId" class="h-full w-full object-cover" />
-                } @else {
-                  <div class="flex h-full items-center justify-center text-xs text-white/35">
-                    {{ m.mediaType }}
-                  </div>
-                }
-              </div>
-              <div class="space-y-1.5 px-3 py-2.5">
-                <p class="truncate text-xs font-semibold uppercase tracking-wide text-white/40">
-                  {{ m.mediaType }}
-                </p>
-                <p class="line-clamp-2 text-sm text-white/80">
-                  {{ m.caption || ('instagram.no_caption' | t) }}
-                </p>
-                <p class="text-[11px] text-white/40">
-                  {{ 'instagram.metric.likes' | t }} {{ metricValue(m.likeCount) }}
-                  · {{ 'instagram.metric.comments' | t }} {{ metricValue(m.commentsCount) }}
-                </p>
-              </div>
-            </button>
-          } @empty {
-            <div
-              class="col-span-full rounded-xl border border-dashed border-white/12 px-4 py-12 text-center text-sm text-white/45"
-            >
-              {{ 'instagram.media_empty' | t }}
+          @if (mediaTotalPages() > 1) {
+            <div class="flex items-center gap-1.5 text-xs text-white/50">
+              <button
+                type="button"
+                class="btn-ghost !px-2 !py-1"
+                [disabled]="mediaPage() <= 0 || loadingMedia()"
+                (click)="loadMedia(mediaPage() - 1)"
+              >
+                ←
+              </button>
+              <span class="min-w-12 text-center tabular-nums">{{ mediaPage() + 1 }} / {{ mediaTotalPages() }}</span>
+              <button
+                type="button"
+                class="btn-ghost !px-2 !py-1"
+                [disabled]="mediaPage() + 1 >= mediaTotalPages() || loadingMedia()"
+                (click)="loadMedia(mediaPage() + 1)"
+              >
+                →
+              </button>
             </div>
           }
         </div>
-      }
-    </div>
+
+        <div class="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1">
+          @for (f of mediaFilters; track f) {
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
+              [class.bg-white/12]="mediaFilter() === f"
+              [class.text-white]="mediaFilter() === f"
+              [class.shadow-sm]="mediaFilter() === f"
+              [class.text-white/45]="mediaFilter() !== f"
+              [class.hover:text-white/75]="mediaFilter() !== f"
+              (click)="setMediaFilter(f)"
+            >
+              {{ filterLabelKey(f) | t }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">
+        @if (loadingMedia()) {
+          <p class="py-16 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+        } @else {
+          <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+            @for (m of media(); track m.id) {
+              <button
+                type="button"
+                class="group relative aspect-square overflow-hidden rounded-xl border border-white/8 bg-black/40 text-left transition hover:border-accent-2/40 hover:shadow-[0_12px_40px_-24px_rgba(0,194,168,0.55)]"
+                (click)="openMedia(m)"
+              >
+                @if (previewUrl(m); as url) {
+                  <img
+                    [src]="url"
+                    [alt]="m.caption || m.igMediaId"
+                    class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+                  />
+                } @else {
+                  <div class="flex h-full items-center justify-center text-xs text-white/35">{{ m.mediaType }}</div>
+                }
+
+                <div
+                  class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-90 transition group-hover:opacity-100"
+                ></div>
+
+                <span
+                  class="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm"
+                >
+                  {{ m.mediaType === 'CAROUSEL_ALBUM' ? 'Album' : m.mediaType }}
+                </span>
+
+                @if (isVideo(m.mediaType)) {
+                  <span
+                    class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+                    aria-hidden="true"
+                  >
+                    <span class="ml-0.5 border-y-[5px] border-l-[8px] border-y-transparent border-l-white"></span>
+                  </span>
+                }
+
+                <div class="absolute inset-x-0 bottom-0 space-y-1 p-2.5">
+                  <p class="line-clamp-2 text-[12px] leading-snug text-white/90">
+                    {{ m.caption || ('instagram.no_caption' | t) }}
+                  </p>
+                  <p class="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-medium tabular-nums text-white/55">
+                    <span>♥ {{ metricValue(m.likeCount) }}</span>
+                    <span>💬 {{ metricValue(m.commentsCount) }}</span>
+                  </p>
+                </div>
+              </button>
+            } @empty {
+              <div
+                class="col-span-full rounded-xl border border-dashed border-white/12 px-4 py-16 text-center text-sm text-white/45"
+              >
+                {{ 'instagram.media_empty' | t }}
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </section>
   </div>
 
   @if (selectedMedia(); as detail) {
-    <div class="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-4 sm:items-center" (click)="closeDetail()">
+    <div
+      class="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-3 backdrop-blur-[2px] sm:items-center sm:p-4"
+      (click)="closeDetail()"
+    >
       <div
-        class="surface-card max-h-[90dvh] w-full max-w-3xl overflow-y-auto p-5"
+        class="surface-card max-h-[92dvh] w-full max-w-4xl overflow-hidden border-white/12 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85)]"
         (click)="$event.stopPropagation()"
       >
-        <div class="mb-4 flex items-start justify-between gap-3">
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div>
-            <p class="text-xs font-bold uppercase tracking-[0.12em] text-white/40">{{ detail.mediaType }}</p>
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">{{ detail.mediaType }}</p>
             <h3 class="mt-1 font-display text-xl font-semibold text-white">{{ 'instagram.detail' | t }}</h3>
           </div>
           <button type="button" class="btn-ghost !px-3 !py-1.5 text-xs" (click)="closeDetail()">
@@ -191,24 +341,28 @@
         </div>
 
         @if (loadingDetail()) {
-          <p class="py-8 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+          <p class="py-16 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
         } @else {
-          <div class="grid gap-5 md:grid-cols-2">
-            <div class="overflow-hidden rounded-xl bg-black/30">
+          <div class="grid max-h-[calc(92dvh-4.5rem)] overflow-y-auto md:grid-cols-[1.05fr_0.95fr]">
+            <div class="bg-black/40 md:min-h-[420px]">
               @if (detail.mediaType === 'CAROUSEL_ALBUM' && detail.children?.length) {
                 @if (carouselChild(); as child) {
-                  <div class="relative">
+                  <div class="relative flex h-full min-h-[280px] items-center justify-center">
                     @if (isVideo(child.mediaType) && child.mediaUrl) {
-                      <video [src]="child.mediaUrl" controls class="w-full object-contain"></video>
+                      <video [src]="child.mediaUrl" controls class="max-h-[70dvh] w-full object-contain"></video>
                     } @else if (child.mediaUrl || child.thumbnailUrl; as curl) {
-                      <img [src]="curl" alt="" class="w-full object-contain" />
+                      <img [src]="curl" alt="" class="max-h-[70dvh] w-full object-contain" />
                     }
-                    <div class="absolute inset-x-0 bottom-2 flex items-center justify-between px-2">
-                      <button type="button" class="btn-ghost !px-2 !py-1 text-xs" (click)="prevCarousel()">←</button>
-                      <span class="rounded bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
+                    <div class="absolute inset-x-0 bottom-3 flex items-center justify-between px-3">
+                      <button type="button" class="btn-ghost !bg-black/45 !px-2.5 !py-1 text-xs" (click)="prevCarousel()">
+                        ←
+                      </button>
+                      <span class="rounded-md bg-black/55 px-2 py-0.5 text-[11px] text-white/85 backdrop-blur-sm">
                         {{ carouselIndex() + 1 }} / {{ detail.children!.length }}
                       </span>
-                      <button type="button" class="btn-ghost !px-2 !py-1 text-xs" (click)="nextCarousel()">→</button>
+                      <button type="button" class="btn-ghost !bg-black/45 !px-2.5 !py-1 text-xs" (click)="nextCarousel()">
+                        →
+                      </button>
                     </div>
                   </div>
                 }
@@ -217,61 +371,88 @@
                   [src]="detail.mediaUrl"
                   controls
                   [attr.poster]="detail.thumbnailUrl || null"
-                  class="w-full object-contain"
+                  class="max-h-[70dvh] w-full object-contain"
                 ></video>
               } @else if (previewUrl(detail); as url) {
-                <img [src]="url" [alt]="detail.caption || detail.igMediaId" class="w-full object-contain" />
+                <img
+                  [src]="url"
+                  [alt]="detail.caption || detail.igMediaId"
+                  class="max-h-[70dvh] w-full object-contain"
+                />
               }
             </div>
-            <div class="space-y-3 text-sm text-white/70">
-              <p class="whitespace-pre-wrap text-white">{{ detail.caption || ('instagram.no_caption' | t) }}</p>
 
-              <div class="grid grid-cols-2 gap-2 text-xs">
-                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
-                  <p class="text-white/40">{{ 'instagram.metric.likes' | t }}</p>
-                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.likeCount) }}</p>
+            <div class="space-y-4 border-t border-white/10 p-5 md:border-l md:border-t-0">
+              <p class="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                {{ detail.caption || ('instagram.no_caption' | t) }}
+              </p>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div class="rounded-xl border border-white/8 bg-ink-soft/60 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.metric.likes' | t }}
+                  </p>
+                  <p class="mt-1 font-display text-lg font-semibold tabular-nums text-white">
+                    {{ metricValue(detail.likeCount) }}
+                  </p>
                 </div>
-                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
-                  <p class="text-white/40">{{ 'instagram.metric.comments' | t }}</p>
-                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.commentsCount) }}</p>
+                <div class="rounded-xl border border-white/8 bg-ink-soft/60 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.metric.comments' | t }}
+                  </p>
+                  <p class="mt-1 font-display text-lg font-semibold tabular-nums text-white">
+                    {{ metricValue(detail.commentsCount) }}
+                  </p>
                 </div>
-                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
-                  <p class="text-white/40">{{ 'instagram.metric.shares' | t }}</p>
-                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.sharesCount) }}</p>
+                <div class="rounded-xl border border-white/8 bg-ink-soft/60 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.metric.shares' | t }}
+                  </p>
+                  <p class="mt-1 font-display text-lg font-semibold tabular-nums text-white">
+                    {{ metricValue(detail.sharesCount) }}
+                  </p>
                 </div>
-                <div class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
-                  <p class="text-white/40">{{ 'instagram.metric.saves' | t }}</p>
-                  <p class="mt-0.5 text-base font-semibold text-white">{{ metricValue(detail.savesCount) }}</p>
+                <div class="rounded-xl border border-white/8 bg-ink-soft/60 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.metric.saves' | t }}
+                  </p>
+                  <p class="mt-1 font-display text-lg font-semibold tabular-nums text-white">
+                    {{ metricValue(detail.savesCount) }}
+                  </p>
                 </div>
               </div>
 
-              @if (detail.publishedAt) {
-                <p>{{ 'instagram.published' | t }}: {{ detail.publishedAt | date: 'medium' }}</p>
-              }
-              @if (detail.permalink) {
-                <a
-                  [href]="detail.permalink"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1 font-semibold text-accent-2 hover:underline"
-                >
-                  {{ 'instagram.open_ig' | t }}
-                  <app-icon name="activity" [size]="14" />
-                </a>
-              }
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/45">
+                @if (detail.publishedAt) {
+                  <span>{{ 'instagram.published' | t }}: {{ detail.publishedAt | date: 'medium' }}</span>
+                }
+                @if (detail.permalink) {
+                  <a
+                    [href]="detail.permalink"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 font-semibold text-accent-2 hover:underline"
+                  >
+                    {{ 'instagram.open_ig' | t }}
+                    <app-icon name="activity" [size]="14" />
+                  </a>
+                }
+              </div>
 
               <div>
-                <p class="mb-2 text-xs font-bold uppercase tracking-wide text-white/40">
+                <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
                   {{ 'instagram.comments' | t }}
                 </p>
                 @if (loadingComments()) {
                   <p class="text-xs text-white/45">{{ 'action.loading' | t }}</p>
                 } @else if (!topLevelComments().length) {
-                  <p class="text-xs text-white/45">{{ 'instagram.comments_empty' | t }}</p>
+                  <p class="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-xs text-white/40">
+                    {{ 'instagram.comments_empty' | t }}
+                  </p>
                 } @else {
-                  <ul class="max-h-64 space-y-3 overflow-y-auto pr-1">
+                  <ul class="max-h-56 space-y-2 overflow-y-auto pr-1">
                     @for (c of topLevelComments(); track c.id) {
-                      <li class="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2">
+                      <li class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
                         <p class="text-xs font-semibold text-white/80">
                           {{ c.username ? '@' + c.username : ('instagram.comment_anon' | t) }}
                           @if (c.likeCount != null) {
@@ -283,7 +464,7 @@
                           <p class="mt-1 text-[11px] text-white/35">{{ c.publishedAt | date: 'short' }}</p>
                         }
                         @for (r of repliesFor(c); track r.id) {
-                          <div class="mt-2 border-l border-white/15 pl-3">
+                          <div class="mt-2 border-l-2 border-accent-2/30 pl-3">
                             <p class="text-xs font-semibold text-white/70">
                               {{ r.username ? '@' + r.username : ('instagram.comment_anon' | t) }}
                             </p>

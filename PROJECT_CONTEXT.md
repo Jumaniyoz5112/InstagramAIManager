@@ -4,9 +4,9 @@
 
 **Oxirgi yangilanish:** 2026-11-10  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; post tip filter / video / metrics / comments sync — **DONE**; Meta live OAuth sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE  
-**To‘xtatilgan:** Media Management CRUD, Instagram **publishing**, AI Agent / Video Factory  
-**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; deeper analytics  
+**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; post tip filter / video / metrics / comments sync — **DONE**; **Content Publishing (IMAGE/REELS/STORIES/CAROUSEL)** — **DONE** (public HTTPS staging kerak); Meta live OAuth sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE  
+**To‘xtatilgan:** Media Management CRUD (edit/delete library), AI Agent / Video Factory  
+**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; deeper analytics; async publish queue  
 
 ---
 
@@ -49,6 +49,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | M1 Instagram OAuth + media sync (BE, disabled by default) | DONE |
 | M1 Instagram UI (connect / accounts / media / detail) | DONE |
 | Post media filter + video player + metrics/comments sync | DONE |
+| Instagram Content Publishing (feed/reels/stories/carousel) | DONE |
 
 ### Instagram (M0/M1 BE+UI)
 
@@ -61,11 +62,15 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Media Graph: Facebook Login / SUAT tokenlar uchun `graph.facebook.com` + **Bearer** (query `access_token` mangle qilmasin); `graph.instagram.com` faqat Instagram Login tokenlari
 - Accounts: `GET /api/v1/instagram/accounts`, `POST .../{id}/sync`, `DELETE .../{id}`
 - Media: `GET /api/v1/instagram/media` (`mediaType` optional), `GET .../{mediaId}`, `GET .../{mediaId}/comments`
+- Publish: `POST /api/v1/instagram/publish` (multipart: `accountId`, `publishType`, `caption?`, `files`, `idempotencyKey?`); `GET /publish`, `GET /publish/{jobId}`; public signed `GET /public-media/{assetId}?exp&sig` (permitAll)
+- Publish types: `FEED_IMAGE` | `REELS` | `STORY_IMAGE` | `STORY_VIDEO` | `CAROUSEL` (JPEG / MP4|MOV; carousel 2–10)
+- Publish flow: store via `StoragePort` → signed public URL → Graph container → poll status → `media_publish`; Liquibase `006-instagram-publish.sql`
+- **Local publish:** `INSTAGRAM_PUBLIC_MEDIA_BASE_URL` = HTTPS tunnel (Meta localhost’ni o‘qimaydi); token scope `instagram_business_content_publish` (yoki FB Login `instagram_content_publish`)
 - Sync enrich: Graph `like_count`/`comments_count`; insights `shares`/`saved` → DB; comments upsert (`instagram_media_comments`); insights/comments xato → null/skip, sync davom etadi
-- Liquibase: `005-instagram-media-metrics-comments.sql` (metrics columns + comments table)
-- Scopes default: `instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_comments`
+- Liquibase: `005-…metrics-comments`, `006-…publish` (`instagram_publish_jobs` + `instagram_publish_assets`)
+- Scopes default: `…_basic,…_manage_insights,…_manage_comments,instagram_business_content_publish`
 - Sync: enqueue → scheduler; live verified: `@mashhura01_2009` ACTIVE, media synced
-- UI: filter ALL|IMAGE|VIDEO|CAROUSEL; HTML5 video; metrics row; comments panel (reply indent); i18n uz/ru/en
+- UI: filter ALL|IMAGE|VIDEO|CAROUSEL; HTML5 video; metrics; comments; **Post qo‘shish** panel; i18n uz/ru/en
 - Prod secrets: `JWT_SECRET` + `IG_TOKEN_ENCRYPTION_KEY` (dev crypto default rejected in prod)
 
 ### Platform Admin (H1, read-only)

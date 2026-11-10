@@ -154,6 +154,25 @@ export const RU = {
   'instagram.status.NEEDS_REAUTH': 'Нужна повторная авторизация',
   'instagram.status.DISCONNECTED': 'Отключён',
   'instagram.status.ERROR': 'Ошибка',
+  'instagram.publish': 'Новый пост',
+  'instagram.publish_title': 'Публикация в Instagram',
+  'instagram.publish_caption': 'Подпись',
+  'instagram.publish_caption_ph': 'Текст (для stories обычно не используется)',
+  'instagram.publish_files': 'Файлы',
+  'instagram.publish_hint': 'Фото: JPEG. Video/Reels/Story: MP4 или MOV. Карусель: 2–10.',
+  'instagram.publish_submit': 'Опубликовать',
+  'instagram.publishing': 'Публикация…',
+  'instagram.publish_ok': 'Опубликовано в Instagram. Sync запущен.',
+  'instagram.publish_failed': 'Публикация не удалась',
+  'instagram.publish_need_files': 'Выберите хотя бы один файл',
+  'instagram.need_account': 'Сначала выберите аккаунт Instagram',
+  'instagram.publish_public_note':
+    'Meta скачивает файлы по публичному HTTPS URL — укажите INSTAGRAM_PUBLIC_MEDIA_BASE_URL (tunnel).',
+  'instagram.publish.type.FEED_IMAGE': 'Фото',
+  'instagram.publish.type.REELS': 'Reels',
+  'instagram.publish.type.STORY_IMAGE': 'Story фото',
+  'instagram.publish.type.STORY_VIDEO': 'Story видео',
+  'instagram.publish.type.CAROUSEL': 'Карусель',
 
   'error.auth.email_taken': 'Этот email уже зарегистрирован',
   'error.auth.tenant_slug_taken': 'Этот tenant slug занят',
@@ -188,6 +207,15 @@ export const RU = {
   'error.instagram.needs_reauth': 'Подключите Instagram аккаунт заново',
   'error.instagram.account_discovery_failed':
     'Аккаунт Instagram не найден. Нужен Business/Creator, привязанный к Facebook Page, и разрешение pages_show_list в Meta App.',
+  'error.instagram.publish_disabled': 'Публикация Instagram отключена',
+  'error.instagram.publish_not_found': 'Задача публикации не найдена',
+  'error.instagram.publish_invalid': 'Неверный тип или число файлов (JPEG / MP4-MOV; карусель 2–10)',
+  'error.instagram.publish_public_url_required':
+    'Нет публичного URL. Укажите INSTAGRAM_PUBLIC_MEDIA_BASE_URL (HTTPS tunnel).',
+  'error.instagram.publish_limit': 'Достигнут лимит публикаций Instagram (24ч)',
+  'error.instagram.publish_failed': 'Не удалось опубликовать в Instagram',
+  'error.instagram.publish_account_inactive': 'Публиковать можно только с активного аккаунта',
+  'error.instagram.publish_asset_not_found': 'Staging-медиа не найдено',
   'error.generic': 'Произошла ошибка',
   'success.auth.logout': 'Вы вышли из системы'
 } as const;

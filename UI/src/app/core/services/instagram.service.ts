@@ -84,6 +84,30 @@ export interface OauthStartResponse {
   state: string;
 }
 
+export type PublishType = 'FEED_IMAGE' | 'REELS' | 'STORY_IMAGE' | 'STORY_VIDEO' | 'CAROUSEL';
+export type PublishJobStatus =
+  | 'PENDING'
+  | 'UPLOADING'
+  | 'CONTAINER_CREATED'
+  | 'PROCESSING'
+  | 'PUBLISHING'
+  | 'PUBLISHED'
+  | 'FAILED';
+
+export interface InstagramPublishJob {
+  id: string;
+  accountId: string;
+  publishType: PublishType;
+  status: PublishJobStatus;
+  caption: string | null;
+  containerId: string | null;
+  publishedIgMediaId: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InstagramService {
   private readonly http = inject(HttpClient);
@@ -145,6 +169,40 @@ export class InstagramService {
   listComments(mediaId: string): Observable<InstagramMediaComment[]> {
     return this.http
       .get<ApiResponse<InstagramMediaComment[]>>(`${this.baseUrl}/media/${mediaId}/comments`, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  publish(params: {
+    accountId: string;
+    publishType: PublishType;
+    caption?: string;
+    files: File[];
+    idempotencyKey?: string;
+  }): Observable<InstagramPublishJob> {
+    const form = new FormData();
+    form.append('accountId', params.accountId);
+    form.append('publishType', params.publishType);
+    if (params.caption?.trim()) {
+      form.append('caption', params.caption.trim());
+    }
+    if (params.idempotencyKey) {
+      form.append('idempotencyKey', params.idempotencyKey);
+    }
+    for (const file of params.files) {
+      form.append('files', file, file.name);
+    }
+    return this.http
+      .post<ApiResponse<InstagramPublishJob>>(`${this.baseUrl}/publish`, form, { withCredentials: true })
+      .pipe(map((res) => res.data));
+  }
+
+  listPublishJobs(accountId: string): Observable<InstagramPublishJob[]> {
+    const params = new HttpParams().set('accountId', accountId);
+    return this.http
+      .get<ApiResponse<InstagramPublishJob[]>>(`${this.baseUrl}/publish`, {
+        params,
         withCredentials: true
       })
       .pipe(map((res) => res.data));

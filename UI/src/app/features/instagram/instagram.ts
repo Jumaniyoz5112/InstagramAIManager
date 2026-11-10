@@ -10,7 +10,8 @@ import {
   InstagramMedia,
   InstagramMediaComment,
   InstagramMediaType,
-  InstagramService
+  InstagramService,
+  PublishType
 } from '../../core/services/instagram.service';
 import { AppIcon } from '../../shared/ui/icon';
 
@@ -19,7 +20,22 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 @Component({
   selector: 'app-instagram',
   imports: [AppIcon, TranslatePipe, DatePipe],
-  templateUrl: './instagram.html'
+  templateUrl: './instagram.html',
+  styles: `
+    :host {
+      display: block;
+    }
+
+    @media (min-width: 1024px) {
+      :host {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+      }
+    }
+  `
 })
 export class InstagramPage implements OnInit {
   private readonly api = inject(InstagramService);
@@ -47,11 +63,29 @@ export class InstagramPage implements OnInit {
   protected readonly loadingComments = signal(false);
   protected readonly carouselIndex = signal(0);
 
+  protected readonly publishing = signal(false);
+  protected readonly publishType = signal<PublishType>('FEED_IMAGE');
+  protected readonly publishCaption = signal('');
+  protected readonly publishFiles = signal<File[]>([]);
+  protected readonly showPublish = signal(false);
+
   protected readonly mediaFilters: MediaFilter[] = ['ALL', 'IMAGE', 'VIDEO', 'CAROUSEL_ALBUM'];
+  protected readonly publishTypes: PublishType[] = [
+    'FEED_IMAGE',
+    'REELS',
+    'STORY_IMAGE',
+    'STORY_VIDEO',
+    'CAROUSEL'
+  ];
 
   protected readonly topLevelComments = computed(() =>
     this.comments().filter((c) => !c.parentIgCommentId)
   );
+
+  protected readonly selectedAccount = computed(() => {
+    const id = this.selectedAccountId();
+    return this.accounts().find((a) => a.id === id) ?? null;
+  });
 
   ngOnInit(): void {
     const connected = this.route.snapshot.queryParamMap.get('connected');
@@ -271,5 +305,105 @@ export class InstagramPage implements OnInit {
 
   protected statusKey(status: string): string {
     return `instagram.status.${status}`;
+  }
+
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'ACTIVE':
+        return 'bg-accent-2/15 text-accent-2';
+      case 'NEEDS_REAUTH':
+        return 'bg-warn/15 text-warn';
+      case 'DISCONNECTED':
+        return 'bg-white/10 text-white/50';
+      default:
+        return 'bg-accent/15 text-accent';
+    }
+  }
+
+  protected accountInitials(account: InstagramAccount): string {
+    const raw = (account.username || account.igUserId || '?').trim();
+    return raw.slice(0, 2).toUpperCase();
+  }
+
+  protected togglePublish(): void {
+    this.showPublish.update((v) => !v);
+  }
+
+  protected setPublishType(type: PublishType): void {
+    this.publishType.set(type);
+    this.publishFiles.set([]);
+  }
+
+  protected onPublishFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const list = input.files ? Array.from(input.files) : [];
+    this.publishFiles.set(list);
+  }
+
+  protected publishCaptionChange(event: Event): void {
+    this.publishCaption.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected publishAccept(): string {
+    switch (this.publishType()) {
+      case 'FEED_IMAGE':
+      case 'STORY_IMAGE':
+        return 'image/jpeg,.jpg,.jpeg';
+      case 'REELS':
+      case 'STORY_VIDEO':
+        return 'video/mp4,video/quicktime,.mp4,.mov';
+      case 'CAROUSEL':
+        return 'image/jpeg,.jpg,.jpeg,video/mp4,video/quicktime,.mp4,.mov';
+    }
+  }
+
+  protected publishMultiple(): boolean {
+    return this.publishType() === 'CAROUSEL';
+  }
+
+  protected submitPublish(): void {
+    const accountId = this.selectedAccountId();
+    if (!accountId) {
+      this.error.set(this.i18n.t('instagram.need_account'));
+      return;
+    }
+    const files = this.publishFiles();
+    if (!files.length) {
+      this.error.set(this.i18n.t('instagram.publish_need_files'));
+      return;
+    }
+    this.publishing.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+    this.api
+      .publish({
+        accountId,
+        publishType: this.publishType(),
+        caption: this.publishCaption(),
+        files,
+        idempotencyKey: crypto.randomUUID()
+      })
+      .subscribe({
+        next: (job) => {
+          this.publishing.set(false);
+          if (job.status === 'PUBLISHED') {
+            this.notice.set(this.i18n.t('instagram.publish_ok'));
+            this.publishCaption.set('');
+            this.publishFiles.set([]);
+            this.showPublish.set(false);
+            this.sync(accountId);
+          } else {
+            this.error.set(job.errorMessage || this.i18n.t('instagram.publish_failed'));
+          }
+        },
+        error: (err: unknown) => {
+          this.publishing.set(false);
+          this.error.set(translateApiError(this.i18n, err, 'instagram.publish_failed'));
+        }
+      });
+  }
+
+  protected publishTypeKey(type: PublishType): string {
+    return `instagram.publish.type.${type}`;
   }
 }

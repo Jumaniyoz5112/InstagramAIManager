@@ -154,6 +154,25 @@ export const EN = {
   'instagram.status.NEEDS_REAUTH': 'Needs reauth',
   'instagram.status.DISCONNECTED': 'Disconnected',
   'instagram.status.ERROR': 'Error',
+  'instagram.publish': 'New post',
+  'instagram.publish_title': 'Publish to Instagram',
+  'instagram.publish_caption': 'Caption',
+  'instagram.publish_caption_ph': 'Caption text (usually unused for stories)',
+  'instagram.publish_files': 'Files',
+  'instagram.publish_hint': 'Images: JPEG. Video/Reels/Story: MP4 or MOV. Carousel: 2–10 items.',
+  'instagram.publish_submit': 'Publish',
+  'instagram.publishing': 'Publishing…',
+  'instagram.publish_ok': 'Published to Instagram. Sync started.',
+  'instagram.publish_failed': 'Publish failed',
+  'instagram.publish_need_files': 'Select at least one file',
+  'instagram.need_account': 'Select an Instagram account first',
+  'instagram.publish_public_note':
+    'Meta fetches files via a public HTTPS URL — set INSTAGRAM_PUBLIC_MEDIA_BASE_URL to your tunnel.',
+  'instagram.publish.type.FEED_IMAGE': 'Image',
+  'instagram.publish.type.REELS': 'Reels',
+  'instagram.publish.type.STORY_IMAGE': 'Story image',
+  'instagram.publish.type.STORY_VIDEO': 'Story video',
+  'instagram.publish.type.CAROUSEL': 'Carousel',
 
   'error.auth.email_taken': 'This email is already registered',
   'error.auth.tenant_slug_taken': 'This tenant slug is taken',
@@ -188,6 +207,15 @@ export const EN = {
   'error.instagram.needs_reauth': 'Reconnect your Instagram account',
   'error.instagram.account_discovery_failed':
     'Could not find an Instagram account. Link a Business/Creator account to a Facebook Page and grant pages_show_list in the Meta App.',
+  'error.instagram.publish_disabled': 'Instagram publishing is disabled',
+  'error.instagram.publish_not_found': 'Publish job not found',
+  'error.instagram.publish_invalid': 'Invalid file type or count (JPEG / MP4-MOV; carousel 2–10)',
+  'error.instagram.publish_public_url_required':
+    'Public media URL missing. Set INSTAGRAM_PUBLIC_MEDIA_BASE_URL to your HTTPS tunnel.',
+  'error.instagram.publish_limit': 'Instagram publish limit (24h) reached',
+  'error.instagram.publish_failed': 'Failed to publish to Instagram',
+  'error.instagram.publish_account_inactive': 'Only an active account can publish',
+  'error.instagram.publish_asset_not_found': 'Staged media not found',
   'error.generic': 'Something went wrong',
   'success.auth.logout': 'Signed out'
 } as const;

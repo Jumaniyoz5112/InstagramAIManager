@@ -28,6 +28,16 @@ public class InstagramProperties {
     private int mediaUrlTtlHours = 48;
     private long tokenRefreshLeadDays = 10;
     private long incrementalSyncIntervalMs = 900_000;
+    /**
+     * Public HTTPS base Meta can fetch for staged uploads (tunnel / CDN).
+     * Example: {@code https://xxx.trycloudflare.com}. Empty → publish requires external media URLs.
+     */
+    private String publicMediaBaseUrl = "";
+    private int publicMediaUrlTtlSeconds = 7_200;
+    private int publishPollIntervalMs = 3_000;
+    private int publishPollMaxAttempts = 60;
+    private long publishMaxImageBytes = 8L * 1024 * 1024;
+    private long publishMaxVideoBytes = 100L * 1024 * 1024;
 
     public boolean isEnabled() {
         return enabled;
@@ -167,5 +177,53 @@ public class InstagramProperties {
 
     public void setIncrementalSyncIntervalMs(long incrementalSyncIntervalMs) {
         this.incrementalSyncIntervalMs = incrementalSyncIntervalMs;
+    }
+
+    public String getPublicMediaBaseUrl() {
+        return publicMediaBaseUrl;
+    }
+
+    public void setPublicMediaBaseUrl(String publicMediaBaseUrl) {
+        this.publicMediaBaseUrl = publicMediaBaseUrl;
+    }
+
+    public int getPublicMediaUrlTtlSeconds() {
+        return publicMediaUrlTtlSeconds;
+    }
+
+    public void setPublicMediaUrlTtlSeconds(int publicMediaUrlTtlSeconds) {
+        this.publicMediaUrlTtlSeconds = publicMediaUrlTtlSeconds;
+    }
+
+    public int getPublishPollIntervalMs() {
+        return publishPollIntervalMs;
+    }
+
+    public void setPublishPollIntervalMs(int publishPollIntervalMs) {
+        this.publishPollIntervalMs = publishPollIntervalMs;
+    }
+
+    public int getPublishPollMaxAttempts() {
+        return publishPollMaxAttempts;
+    }
+
+    public void setPublishPollMaxAttempts(int publishPollMaxAttempts) {
+        this.publishPollMaxAttempts = publishPollMaxAttempts;
+    }
+
+    public long getPublishMaxImageBytes() {
+        return publishMaxImageBytes;
+    }
+
+    public void setPublishMaxImageBytes(long publishMaxImageBytes) {
+        this.publishMaxImageBytes = publishMaxImageBytes;
+    }
+
+    public long getPublishMaxVideoBytes() {
+        return publishMaxVideoBytes;
+    }
+
+    public void setPublishMaxVideoBytes(long publishMaxVideoBytes) {
+        this.publishMaxVideoBytes = publishMaxVideoBytes;
     }
 }

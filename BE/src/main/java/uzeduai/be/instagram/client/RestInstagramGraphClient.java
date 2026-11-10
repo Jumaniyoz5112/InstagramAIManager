@@ -410,11 +410,97 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
         return restClient.get().uri(URI.create(url)).retrieve().body(MAP_TYPE);
     }
 
+    @Override
+    public String createMediaContainer(String igUserId, String accessToken, Map<String, String> params) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        if (params != null) {
+            params.forEach(form::add);
+        }
+        Map<String, Object> node = postFormWithBearer(fbApi("/" + igUserId + "/media"), accessToken, form);
+        String id = stringVal(node, "id");
+        if (id == null || id.isBlank()) {
+            throw new IllegalStateException("Graph media container create returned no id: " + node);
+        }
+        return id;
+    }
+
+    @Override
+    public ContainerStatus fetchContainerStatus(String containerId, String accessToken) {
+        String url = UriComponentsBuilder
+                .fromUriString(fbApi("/" + containerId))
+                .queryParam("fields", "status_code,status")
+                .toUriString();
+        Map<String, Object> node = getMapWithBearer(url, accessToken);
+        return new ContainerStatus(stringVal(node, "status_code"), stringVal(node, "status"));
+    }
+
+    @Override
+    public String publishMedia(String igUserId, String accessToken, String creationId) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("creation_id", creationId);
+        Map<String, Object> node = postFormWithBearer(fbApi("/" + igUserId + "/media_publish"), accessToken, form);
+        String id = stringVal(node, "id");
+        if (id == null || id.isBlank()) {
+            throw new IllegalStateException("Graph media_publish returned no id: " + node);
+        }
+        return id;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public PublishingLimit fetchContentPublishingLimit(String igUserId, String accessToken) {
+        String url = UriComponentsBuilder
+                .fromUriString(fbApi("/" + igUserId + "/content_publishing_limit"))
+                .queryParam("fields", "config,quota_usage")
+                .toUriString();
+        Map<String, Object> node = getMapWithBearer(url, accessToken);
+        Object dataObj = node == null ? null : node.get("data");
+        if (!(dataObj instanceof List<?> data) || data.isEmpty()) {
+            return new PublishingLimit(100, 0);
+        }
+        Object first = data.getFirst();
+        if (!(first instanceof Map<?, ?> row)) {
+            return new PublishingLimit(100, 0);
+        }
+        int usage = 0;
+        Object usageObj = row.get("quota_usage");
+        if (usageObj instanceof Number number) {
+            usage = number.intValue();
+        } else if (usageObj != null) {
+            usage = Integer.parseInt(usageObj.toString());
+        }
+        int total = 100;
+        Object configObj = row.get("config");
+        if (configObj instanceof Map<?, ?> config) {
+            Object quotaTotal = config.get("quota_total");
+            if (quotaTotal instanceof Number number) {
+                total = number.intValue();
+            } else if (quotaTotal != null) {
+                total = Integer.parseInt(quotaTotal.toString());
+            }
+        }
+        return new PublishingLimit(total, usage);
+    }
+
     /** Unified Login SUAT discovery prefers Authorization Bearer (Meta docs / Adeli). */
     private Map<String, Object> getMapWithBearer(String urlWithoutToken, String accessToken) {
         return restClient.get()
                 .uri(URI.create(urlWithoutToken))
                 .header("Authorization", "Bearer " + accessToken)
+                .retrieve()
+                .body(MAP_TYPE);
+    }
+
+    private Map<String, Object> postFormWithBearer(
+            String urlWithoutToken,
+            String accessToken,
+            MultiValueMap<String, String> form
+    ) {
+        return restClient.post()
+                .uri(URI.create(urlWithoutToken))
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
                 .retrieve()
                 .body(MAP_TYPE);
     }

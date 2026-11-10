@@ -54,4 +54,24 @@ public class NoopInstagramGraphClient implements InstagramGraphClient {
     public List<Map<String, Object>> fetchMediaComments(String igMediaId, String accessToken) {
         return List.of();
     }
+
+    @Override
+    public String createMediaContainer(String igUserId, String accessToken, Map<String, String> params) {
+        throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
+    }
+
+    @Override
+    public ContainerStatus fetchContainerStatus(String containerId, String accessToken) {
+        throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
+    }
+
+    @Override
+    public String publishMedia(String igUserId, String accessToken, String creationId) {
+        throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
+    }
+
+    @Override
+    public PublishingLimit fetchContentPublishingLimit(String igUserId, String accessToken) {
+        throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
+    }
 }

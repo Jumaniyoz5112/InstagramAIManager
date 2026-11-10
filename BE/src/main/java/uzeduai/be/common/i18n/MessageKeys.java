@@ -41,6 +41,14 @@ public final class MessageKeys {
     public static final String INSTAGRAM_SYNC_IN_PROGRESS = "error.instagram.sync_in_progress";
     public static final String INSTAGRAM_NEEDS_REAUTH = "error.instagram.needs_reauth";
     public static final String INSTAGRAM_ACCOUNT_DISCOVERY_FAILED = "error.instagram.account_discovery_failed";
+    public static final String INSTAGRAM_PUBLISH_DISABLED = "error.instagram.publish_disabled";
+    public static final String INSTAGRAM_PUBLISH_NOT_FOUND = "error.instagram.publish_not_found";
+    public static final String INSTAGRAM_PUBLISH_INVALID = "error.instagram.publish_invalid";
+    public static final String INSTAGRAM_PUBLISH_PUBLIC_URL_REQUIRED = "error.instagram.publish_public_url_required";
+    public static final String INSTAGRAM_PUBLISH_LIMIT = "error.instagram.publish_limit";
+    public static final String INSTAGRAM_PUBLISH_FAILED = "error.instagram.publish_failed";
+    public static final String INSTAGRAM_PUBLISH_ACCOUNT_INACTIVE = "error.instagram.publish_account_inactive";
+    public static final String INSTAGRAM_PUBLISH_ASSET_NOT_FOUND = "error.instagram.publish_asset_not_found";
 
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";
