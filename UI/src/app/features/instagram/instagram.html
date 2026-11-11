@@ -222,13 +222,34 @@
     <section class="surface-card flex min-h-0 min-w-0 flex-col overflow-hidden">
       <div class="shrink-0 space-y-2.5 border-b border-white/10 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-3.5">
         <div class="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-          <div class="flex min-w-0 items-center gap-2">
-            <h3 class="font-display text-sm font-semibold text-white sm:text-base">{{ 'instagram.media' | t }}</h3>
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <div class="inline-flex gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1">
+              <button
+                type="button"
+                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                [class.bg-white/12]="mainTab() === 'media'"
+                [class.text-white]="mainTab() === 'media'"
+                [class.text-white/45]="mainTab() !== 'media'"
+                (click)="setMainTab('media')"
+              >
+                {{ 'instagram.media' | t }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                [class.bg-white/12]="mainTab() === 'insights'"
+                [class.text-white]="mainTab() === 'insights'"
+                [class.text-white/45]="mainTab() !== 'insights'"
+                (click)="setMainTab('insights')"
+              >
+                {{ 'instagram.insights' | t }}
+              </button>
+            </div>
             @if (selectedAccount(); as acc) {
               <span class="truncate text-xs text-white/35 sm:text-sm">@{{ acc.username || acc.igUserId }}</span>
             }
           </div>
-          @if (mediaTotalPages() > 1) {
+          @if (mainTab() === 'media' && mediaTotalPages() > 1) {
             <div class="flex items-center gap-1.5 text-xs text-white/50">
               <button
                 type="button"
@@ -251,6 +272,7 @@
           }
         </div>
 
+        @if (mainTab() === 'media') {
         <div class="-mx-1 overflow-x-auto px-1">
           <div class="inline-flex min-w-full gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1 sm:min-w-0 sm:flex-wrap">
             @for (f of mediaFilters; track f) {
@@ -269,58 +291,177 @@
             }
           </div>
         </div>
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <p class="text-[11px] leading-relaxed text-white/40 sm:text-xs">
+            {{ 'instagram.analysis_hint' | t }}
+            @if (analyzingCount() > 0) {
+              <span class="ml-1 font-semibold text-warn">
+                · {{ 'instagram.analysis_in_progress' | t }} ({{ analyzingCount() }})
+              </span>
+            }
+          </p>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              class="btn-ghost !px-2.5 !py-1.5 text-[11px]"
+              [disabled]="!media().length"
+              (click)="selectAllVisibleForAnalysis()"
+            >
+              {{ 'instagram.analysis_select_pending' | t }}
+            </button>
+            @if (selectedCount() > 0) {
+              <button type="button" class="btn-ghost !px-2.5 !py-1.5 text-[11px]" (click)="clearAnalysisSelection()">
+                {{ 'instagram.analysis_clear' | t }} ({{ selectedCount() }})
+              </button>
+              <button
+                type="button"
+                class="btn-primary !px-2.5 !py-1.5 text-[11px]"
+                [disabled]="analysisActionBusy()"
+                (click)="analyzeSelected()"
+              >
+                {{ 'instagram.analysis_run' | t }}
+              </button>
+              <button
+                type="button"
+                class="btn-ghost !px-2.5 !py-1.5 text-[11px] text-white/55"
+                [disabled]="analysisActionBusy()"
+                (click)="skipSelected()"
+              >
+                {{ 'instagram.analysis_skip' | t }}
+              </button>
+            }
+          </div>
+        </div>
+        }
+        @if (mainTab() === 'insights') {
+          <p class="text-[11px] leading-relaxed text-white/40 sm:text-xs">{{ 'instagram.insights_hint' | t }}</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              class="btn-primary !px-2.5 !py-1.5 text-[11px]"
+              [disabled]="generatingInsights() || !selectedAccountId()"
+              (click)="generateInsights()"
+            >
+              {{ generatingInsights() ? ('instagram.insights_working' | t) : ('instagram.insights_generate' | t) }}
+            </button>
+            <button
+              type="button"
+              class="btn-ghost !px-2.5 !py-1.5 text-[11px]"
+              [disabled]="!insightReport() || insightReport()?.status !== 'READY' || generatingScenario()"
+              (click)="generateScenario()"
+            >
+              {{ generatingScenario() ? ('instagram.scenario_working' | t) : ('instagram.scenario_generate' | t) }}
+            </button>
+            @if (scenario()?.status === 'READY') {
+              <button type="button" class="btn-ghost !px-2.5 !py-1.5 text-[11px]" (click)="openScenarioDialog()">
+                {{ 'instagram.scenario_view' | t }}
+              </button>
+            }
+          </div>
+        }
       </div>
 
+      @if (mainTab() === 'media') {
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-3 md:p-4">
         @if (loadingMedia()) {
           <p class="py-16 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
         } @else {
           <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             @for (m of media(); track m.id) {
-              <button
-                type="button"
-                class="group relative aspect-square overflow-hidden rounded-xl border border-white/8 bg-black/40 text-left transition hover:border-accent-2/40 hover:shadow-[0_12px_40px_-24px_rgba(0,194,168,0.55)]"
-                (click)="openMedia(m)"
+              <div
+                class="group relative aspect-square overflow-hidden rounded-xl border bg-black/40 text-left transition hover:border-accent-2/40 hover:shadow-[0_12px_40px_-24px_rgba(0,194,168,0.55)]"
+                [class.border-accent-2/50]="isSelectedForAnalysis(m.id)"
+                [class.ring-2]="isSelectedForAnalysis(m.id)"
+                [class.ring-accent-2/40]="isSelectedForAnalysis(m.id)"
+                [class.border-white/8]="!isSelectedForAnalysis(m.id)"
               >
+                <button type="button" class="absolute inset-0 z-0" (click)="openMedia(m)" [attr.aria-label]="'instagram.detail' | t"></button>
+
                 @if (previewUrl(m); as url) {
                   <img
                     [src]="url"
                     [alt]="m.caption || m.igMediaId"
-                    class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+                    class="pointer-events-none h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
                   />
                 } @else {
-                  <div class="flex h-full items-center justify-center text-xs text-white/35">{{ m.mediaType }}</div>
+                  <div class="pointer-events-none flex h-full items-center justify-center text-xs text-white/35">
+                    {{ m.mediaType }}
+                  </div>
                 }
 
                 <div
-                  class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-90 transition group-hover:opacity-100"
+                  class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent opacity-95"
                 ></div>
 
-                <span
-                  class="absolute left-1.5 top-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm sm:left-2 sm:top-2 sm:text-[10px]"
+                @if (isAnalyzing(m.analysisStatus)) {
+                  <div
+                    class="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 bg-black/55 backdrop-blur-[1px] ig-analyze-pulse"
+                  >
+                    <span
+                      class="ig-analyze-spin h-8 w-8 rounded-full border-2 border-white/20 border-t-accent-2"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-white/85">
+                      {{ analysisStatusKey(m.analysisStatus) | t }}
+                    </span>
+                  </div>
+                }
+
+                <label
+                  class="absolute left-1.5 top-1.5 z-[2] flex h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-black/55 backdrop-blur-sm sm:left-2 sm:top-2"
+                  (click)="$event.stopPropagation()"
                 >
-                  {{ m.mediaType === 'CAROUSEL_ALBUM' ? 'Album' : m.mediaType }}
+                  <input
+                    type="checkbox"
+                    class="h-3.5 w-3.5 accent-teal-400"
+                    [checked]="isSelectedForAnalysis(m.id)"
+                    (change)="toggleAnalysisSelect(m, $event)"
+                  />
+                </label>
+
+                <span
+                  class="absolute right-1.5 top-1.5 z-[2] max-w-[46%] truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide backdrop-blur-sm sm:right-2 sm:top-2 sm:text-[10px]"
+                  [class]="analysisStatusTone(m.analysisStatus)"
+                >
+                  {{ analysisStatusKey(m.analysisStatus) | t }}
                 </span>
 
-                @if (isVideo(m.mediaType)) {
+                @if (isVideo(m.mediaType) && !isAnalyzing(m.analysisStatus)) {
                   <span
-                    class="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm sm:right-2 sm:top-2 sm:h-7 sm:w-7"
+                    class="pointer-events-none absolute right-1.5 top-8 z-[1] flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm sm:right-2 sm:top-9 sm:h-7 sm:w-7"
                     aria-hidden="true"
                   >
                     <span class="ml-0.5 border-y-[5px] border-l-[8px] border-y-transparent border-l-white"></span>
                   </span>
                 }
 
-                <div class="absolute inset-x-0 bottom-0 space-y-0.5 p-2 sm:space-y-1 sm:p-2.5">
-                  <p class="line-clamp-2 text-[11px] leading-snug text-white/90 sm:text-[12px]">
-                    {{ m.caption || ('instagram.no_caption' | t) }}
-                  </p>
+                <div class="pointer-events-none absolute inset-x-0 bottom-0 z-[1] space-y-1 p-2 sm:p-2.5">
+                  @if (m.analysisSummary) {
+                    <p class="line-clamp-2 text-[11px] font-medium leading-snug text-accent-2/95 sm:text-[12px]">
+                      {{ m.analysisSummary }}
+                    </p>
+                  } @else {
+                    <p class="line-clamp-2 text-[11px] leading-snug text-white/90 sm:text-[12px]">
+                      {{ m.caption || ('instagram.no_caption' | t) }}
+                    </p>
+                  }
                   <p class="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-medium tabular-nums text-white/55">
                     <span>♥ {{ metricValue(m.likeCount) }}</span>
                     <span>💬 {{ metricValue(m.commentsCount) }}</span>
+                    <span>↗ {{ metricValue(m.sharesCount) }}</span>
                   </p>
+                  @if (m.analysisStatus === 'ANALYZED') {
+                    <button
+                      type="button"
+                      class="pointer-events-auto mt-0.5 rounded-md bg-accent-2/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink shadow-sm hover:bg-accent-2"
+                      (click)="openAnalysisDialog(m, $event)"
+                    >
+                      {{ 'instagram.analysis_view' | t }}
+                    </button>
+                  }
                 </div>
-              </button>
+              </div>
             } @empty {
               <div
                 class="col-span-full rounded-xl border border-dashed border-white/12 px-4 py-12 text-center text-sm text-white/45 sm:py-16"
@@ -331,6 +472,122 @@
           </div>
         }
       </div>
+      } @else {
+      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-4">
+        @if (loadingLeaderboard() || loadingInsights()) {
+          <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+        }
+
+        <div class="space-y-2">
+          <h4 class="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
+            {{ 'instagram.leaderboard' | t }}
+          </h4>
+          @if (!leaderboard().length && !loadingLeaderboard()) {
+            <p class="rounded-xl border border-dashed border-white/10 px-3 py-8 text-center text-sm text-white/40">
+              {{ 'instagram.leaderboard_empty' | t }}
+            </p>
+          } @else {
+            <ul class="space-y-1.5">
+              @for (item of leaderboard(); track item.mediaId) {
+                <li class="rounded-xl border border-white/8 bg-ink-soft/40 px-3 py-2.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-white">
+                        #{{ item.rank }}
+                        <span class="ml-1 font-normal text-white/45">{{ item.bucket }}</span>
+                        · score {{ item.engagementScore | number: '1.0-0' }}
+                      </p>
+                      <p class="mt-0.5 line-clamp-2 text-sm text-white/75">
+                        {{ item.analysisSummary || item.captionPreview || ('instagram.no_caption' | t) }}
+                      </p>
+                      <p class="mt-1 text-[11px] tabular-nums text-white/40">
+                        ♥ {{ metricValue(item.likeCount) }} · 💬 {{ metricValue(item.commentsCount) }} · ↗
+                        {{ metricValue(item.sharesCount) }} · 🔖 {{ metricValue(item.savesCount) }}
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="space-y-2 rounded-xl border border-white/10 bg-ink-soft/30 p-3.5">
+          <h4 class="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
+            {{ 'instagram.insights_patterns' | t }}
+          </h4>
+          @if (insightReport()?.status === 'FAILED') {
+            <p class="text-sm text-accent">{{ insightReport()?.errorMessage || ('instagram.insights_failed' | t) }}</p>
+          } @else if (insightText('executiveSummaryUz'); as summary) {
+            <p class="text-sm leading-relaxed text-white/85">{{ summary }}</p>
+            @if (insightList('winningPatterns'); as wins) {
+              @if (wins.length) {
+                <div class="mt-3">
+                  <p class="text-[10px] font-bold uppercase text-accent-2/80">{{ 'instagram.insights_winning' | t }}</p>
+                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                    @for (w of wins; track w) {
+                      <li>{{ w }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+            @if (insightList('losingPatterns'); as loses) {
+              @if (loses.length) {
+                <div class="mt-3">
+                  <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.insights_losing' | t }}</p>
+                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                    @for (w of loses; track w) {
+                      <li>{{ w }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+            @if (insightList('doNext'); as next) {
+              @if (next.length) {
+                <div class="mt-3">
+                  <p class="text-[10px] font-bold uppercase text-white/45">{{ 'instagram.insights_do_next' | t }}</p>
+                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                    @for (w of next; track w) {
+                      <li>{{ w }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+            @if (insightList('avoidNext'); as avoid) {
+              @if (avoid.length) {
+                <div class="mt-3">
+                  <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.insights_avoid' | t }}</p>
+                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                    @for (w of avoid; track w) {
+                      <li>{{ w }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+          } @else if (!loadingInsights()) {
+            <p class="text-sm text-white/45">{{ 'instagram.insights_empty' | t }}</p>
+          }
+
+          <div class="mt-3 space-y-1.5 border-t border-white/10 pt-3">
+            <label class="text-[11px] font-bold uppercase tracking-wide text-white/45">
+              {{ 'instagram.scenario_brief' | t }}
+            </label>
+            <textarea
+              rows="2"
+              maxlength="1000"
+              class="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent-2/50"
+              [value]="scenarioBrief()"
+              (input)="scenarioBriefChange($event)"
+              [attr.placeholder]="'instagram.scenario_brief_ph' | t"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+      }
     </section>
   </div>
 
@@ -399,6 +656,101 @@
               <p class="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
                 {{ detail.caption || ('instagram.no_caption' | t) }}
               </p>
+
+              <div class="rounded-xl border border-white/10 bg-ink-soft/50 p-3 sm:p-3.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
+                      {{ 'instagram.analysis' | t }}
+                    </p>
+                    <span
+                      class="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                      [class]="analysisStatusTone(detail.analysisStatus)"
+                    >
+                      {{ analysisStatusKey(detail.analysisStatus) | t }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    @if (
+                      detail.analysisStatus === 'NOT_ANALYZED' ||
+                      detail.analysisStatus === 'FAILED' ||
+                      detail.analysisStatus === 'SKIPPED' ||
+                      detail.analysisStatus === 'ANALYZED'
+                    ) {
+                      <button
+                        type="button"
+                        class="btn-primary !px-2.5 !py-1 text-[11px]"
+                        [disabled]="analysisActionBusy()"
+                        (click)="analyzeOne(detail)"
+                      >
+                        {{
+                          detail.analysisStatus === 'ANALYZED'
+                            ? ('instagram.analysis_rerun' | t)
+                            : ('instagram.analysis_run' | t)
+                        }}
+                      </button>
+                    }
+                    @if (detail.analysisStatus === 'NOT_ANALYZED' || detail.analysisStatus === 'FAILED') {
+                      <button
+                        type="button"
+                        class="btn-ghost !px-2.5 !py-1 text-[11px]"
+                        [disabled]="analysisActionBusy()"
+                        (click)="skipOne(detail)"
+                      >
+                        {{ 'instagram.analysis_skip' | t }}
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                @if (isAnalyzing(detail.analysisStatus)) {
+                  <div class="mt-3 flex items-center gap-3 rounded-lg border border-warn/20 bg-warn/10 px-3 py-3">
+                    <span
+                      class="ig-analyze-spin h-6 w-6 shrink-0 rounded-full border-2 border-white/20 border-t-warn"
+                    ></span>
+                    <p class="text-sm text-warn">{{ 'instagram.analysis_working' | t }}</p>
+                  </div>
+                } @else if (loadingAnalysis()) {
+                  <p class="mt-3 text-xs text-white/45">{{ 'action.loading' | t }}</p>
+                } @else if (detail.analysisStatus === 'ANALYZED') {
+                  <div class="mt-3 space-y-2 text-sm text-white/80">
+                    <p class="leading-relaxed">
+                      {{
+                        analysisResultText(mediaAnalysis()) ||
+                          detail.analysisSummary ||
+                          ('instagram.analysis_ready' | t)
+                      }}
+                    </p>
+                    @if (analysisField(mediaAnalysis(), 'contentCategory'); as cat) {
+                      <p class="text-xs text-white/45">
+                        <span class="font-semibold text-white/60">{{ 'instagram.analysis_category' | t }}:</span>
+                        {{ cat }}
+                      </p>
+                    }
+                    @if (analysisField(mediaAnalysis(), 'targetAudience'); as aud) {
+                      <p class="text-xs text-white/45">
+                        <span class="font-semibold text-white/60">{{ 'instagram.analysis_audience' | t }}:</span>
+                        {{ aud }}
+                      </p>
+                    }
+                    <button
+                      type="button"
+                      class="btn-primary !mt-1 !px-2.5 !py-1 text-[11px]"
+                      (click)="openAnalysisDialog(detail)"
+                    >
+                      {{ 'instagram.analysis_view' | t }}
+                    </button>
+                  </div>
+                } @else if (detail.analysisStatus === 'SKIPPED') {
+                  <p class="mt-3 text-xs text-white/45">{{ 'instagram.analysis_skipped_note' | t }}</p>
+                } @else if (detail.analysisStatus === 'FAILED') {
+                  <p class="mt-3 text-xs text-accent">
+                    {{ mediaAnalysis()?.errorMessage || ('instagram.analysis_failed' | t) }}
+                  </p>
+                } @else {
+                  <p class="mt-3 text-xs text-white/45">{{ 'instagram.analysis_pending_note' | t }}</p>
+                }
+              </div>
 
               <div class="grid grid-cols-2 gap-2">
                 <div class="rounded-xl border border-white/8 bg-ink-soft/60 px-3 py-2.5">
@@ -492,6 +844,378 @@
             </div>
           </div>
         }
+      </div>
+    </div>
+  }
+
+  @if (analysisDialogMedia(); as aMedia) {
+    <div
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+      (click)="closeAnalysisDialog()"
+    >
+      <div
+        class="surface-card flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border-white/12 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] sm:max-h-[90dvh] sm:rounded-2xl"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
+          <div class="min-w-0">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+              {{ aMedia.mediaType }}
+            </p>
+            <h3 class="mt-1 font-display text-lg font-semibold text-white sm:text-xl">
+              {{ 'instagram.analysis_dialog_title' | t }}
+            </h3>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" (click)="closeAnalysisDialog()">
+            {{ 'action.close' | t }}
+          </button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+          @if (loadingAnalysisDialog()) {
+            <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+          } @else if (analysisDialogData(); as aData) {
+            <div class="rounded-xl border border-accent-2/25 bg-accent-2/10 p-3.5">
+              <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-accent-2/80">
+                {{ 'instagram.analysis_ai_summary' | t }}
+              </p>
+              <p class="mt-1.5 text-sm leading-relaxed text-white/90">
+                {{ analysisAiSummary(aData) || aMedia.analysisSummary || ('instagram.analysis_ready' | t) }}
+              </p>
+              @if (aData.modelName) {
+                <p class="mt-2 text-[11px] text-white/40">
+                  {{ 'instagram.analysis_model' | t }}: {{ aData.modelName }}
+                </p>
+              }
+            </div>
+
+            <div class="grid gap-2 sm:grid-cols-2">
+              @if (analysisField(aData, 'mainTopic'); as topic) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_topic' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ topic }}</p>
+                </div>
+              }
+              @if (analysisField(aData, 'contentCategory'); as cat) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_category' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ cat }}</p>
+                </div>
+              }
+              @if (analysisField(aData, 'targetAudience'); as aud) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_audience' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ aud }}</p>
+                </div>
+              }
+              @if (analysisField(aData, 'productOrService'); as prod) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_product' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ prod }}</p>
+                </div>
+              }
+              @if (analysisField(aData, 'hook'); as hook) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_hook' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ hook }}</p>
+                </div>
+              }
+              @if (analysisField(aData, 'cta'); as cta) {
+                <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_cta' | t }}
+                  </p>
+                  <p class="mt-1 text-sm text-white/85">{{ cta }}</p>
+                </div>
+              }
+            </div>
+
+            @if (analysisStyleText(aData); as style) {
+              <div class="rounded-xl border border-white/8 bg-ink-soft/50 px-3 py-2.5">
+                <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                  {{ 'instagram.analysis_style' | t }}
+                </p>
+                <p class="mt-1 text-sm text-white/85">{{ style }}</p>
+              </div>
+            }
+
+            @if (analysisList(aData, 'strengths'); as strengths) {
+              @if (strengths.length) {
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_strengths' | t }}
+                  </p>
+                  <ul class="mt-1.5 list-disc space-y-1 pl-4 text-sm text-white/80">
+                    @for (s of strengths; track s) {
+                      <li>{{ s }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+            @if (analysisList(aData, 'weaknesses'); as weaknesses) {
+              @if (weaknesses.length) {
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_weaknesses' | t }}
+                  </p>
+                  <ul class="mt-1.5 list-disc space-y-1 pl-4 text-sm text-white/80">
+                    @for (s of weaknesses; track s) {
+                      <li>{{ s }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+            @if (analysisList(aData, 'recommendations'); as recs) {
+              @if (recs.length) {
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                    {{ 'instagram.analysis_recommendations' | t }}
+                  </p>
+                  <ul class="mt-1.5 list-disc space-y-1 pl-4 text-sm text-white/80">
+                    @for (s of recs; track s) {
+                      <li>{{ s }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+            }
+
+            @if (aMedia.analysisStatus === 'ANALYZED') {
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="btn-ghost !px-2.5 !py-1.5 text-[11px]"
+                  [disabled]="analysisActionBusy()"
+                  (click)="analyzeOne(aMedia); closeAnalysisDialog()"
+                >
+                  {{ 'instagram.analysis_rerun' | t }}
+                </button>
+              </div>
+              <div class="space-y-3 rounded-xl border border-white/10 bg-ink-soft/40 p-3.5">
+                <div>
+                  <label class="text-[11px] font-bold uppercase tracking-wide text-white/45">
+                    {{ 'instagram.analysis_your_summary' | t }}
+                  </label>
+                  <textarea
+                    rows="2"
+                    maxlength="500"
+                    class="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent-2/50"
+                    [value]="feedbackSummary()"
+                    (input)="feedbackSummaryChange($event)"
+                    [attr.placeholder]="'instagram.analysis_your_summary_ph' | t"
+                  ></textarea>
+                </div>
+                <div>
+                  <label class="text-[11px] font-bold uppercase tracking-wide text-white/45">
+                    {{ 'instagram.analysis_your_note' | t }}
+                  </label>
+                  <textarea
+                    rows="2"
+                    maxlength="500"
+                    class="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent-2/50"
+                    [value]="feedbackNote()"
+                    (input)="feedbackNoteChange($event)"
+                    [attr.placeholder]="'instagram.analysis_your_note_ph' | t"
+                  ></textarea>
+                </div>
+                <button
+                  type="button"
+                  class="btn-primary !px-3 !py-1.5 text-xs"
+                  [disabled]="savingAnalysisFeedback()"
+                  (click)="saveAnalysisFeedback()"
+                >
+                  {{ 'instagram.analysis_save_feedback' | t }}
+                </button>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showScenarioDialog() && scenario(); as sc) {
+    <div
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+      (click)="closeScenarioDialog()"
+    >
+      <div
+        class="surface-card flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border-white/12 sm:rounded-2xl"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
+          <div class="min-w-0">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+              {{ 'instagram.scenario_eyebrow' | t }}
+            </p>
+            <h3 class="mt-1 font-display text-lg font-semibold text-white">
+              {{ scenarioText('titleUz') || ('instagram.scenario_view' | t) }}
+            </h3>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" (click)="closeScenarioDialog()">
+            {{ 'action.close' | t }}
+          </button>
+        </div>
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+          @if (scenarioText('goalUz'); as goal) {
+            <p class="text-sm text-white/80">{{ goal }}</p>
+          }
+          @if (scenarioText('format'); as fmt) {
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-white/45">{{ fmt }}</p>
+          }
+          @if (scenarioText('hookUz'); as hook) {
+            <div class="rounded-xl border border-accent-2/25 bg-accent-2/10 p-3">
+              <p class="text-[10px] font-bold uppercase text-accent-2/80">{{ 'instagram.analysis_hook' | t }}</p>
+              <p class="mt-1 text-sm text-white/90">{{ hook }}</p>
+            </div>
+          }
+          @if (scenarioText('captionPrimaryUz'); as cap) {
+            <div>
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_caption' | t }}</p>
+              <p class="mt-1 whitespace-pre-wrap text-sm text-white/85">{{ cap }}</p>
+            </div>
+          }
+          @if (scenarioText('ctaUz'); as cta) {
+            <div>
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_cta' | t }}</p>
+              <p class="mt-1 text-sm text-white/85">{{ cta }}</p>
+            </div>
+          }
+          @if (scenarioList('captionAlternativesUz'); as alts) {
+            @if (alts.length) {
+              <div>
+                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_captions_alt' | t }}</p>
+                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                  @for (a of alts; track a) {
+                    <li class="whitespace-pre-wrap">{{ a }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+          @if (scenarioText('visualDirectionUz'); as visual) {
+            <div>
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_visual' | t }}</p>
+              <p class="mt-1 text-sm text-white/80">{{ visual }}</p>
+            </div>
+          }
+          @if (scenarioList('shotListUz'); as shots) {
+            @if (shots.length) {
+              <div>
+                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_shots' | t }}</p>
+                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
+                  @for (s of shots; track s) {
+                    <li>{{ s }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+          @if (scenarioText('whyThisWorksUz'); as why) {
+            <div>
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_why' | t }}</p>
+              <p class="mt-1 text-xs text-white/55">{{ why }}</p>
+            </div>
+          }
+          @if (scenarioList('risksUz'); as risks) {
+            @if (risks.length) {
+              <div>
+                <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.scenario_risks' | t }}</p>
+                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/70">
+                  @for (r of risks; track r) {
+                    <li>{{ r }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+          @if (scenarioList('postingTipsUz'); as tips) {
+            @if (tips.length) {
+              <div>
+                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_tips' | t }}</p>
+                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/70">
+                  @for (tip of tips; track tip) {
+                    <li>{{ tip }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+          @if (scenarioList('hashtagsUz'); as tags) {
+            @if (tags.length) {
+              <p class="text-sm text-accent-2/90">{{ tags.join(' ') }}</p>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (oauthPickId()) {
+    <div
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+      (click)="closeOauthPick()"
+    >
+      <div
+        class="surface-card flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border-white/12 sm:rounded-2xl"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
+          <div class="min-w-0">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
+              {{ 'instagram.pick_eyebrow' | t }}
+            </p>
+            <h3 class="mt-1 font-display text-lg font-semibold text-white">
+              {{ 'instagram.pick_title' | t }}
+            </h3>
+            <p class="mt-1 text-xs text-white/45">{{ 'instagram.pick_hint' | t }}</p>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" (click)="closeOauthPick()">
+            {{ 'action.close' | t }}
+          </button>
+        </div>
+        <div class="min-h-0 flex-1 space-y-2 overflow-y-auto p-4 sm:p-5">
+          @if (loadingOauthPick()) {
+            <p class="py-8 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
+          } @else if (!oauthPickCandidates().length) {
+            <p class="rounded-xl border border-dashed border-white/10 px-3 py-8 text-center text-sm text-white/45">
+              {{ 'instagram.pick_empty' | t }}
+            </p>
+          } @else {
+            @for (c of oauthPickCandidates(); track c.igUserId) {
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-soft/50 px-3.5 py-3 text-left transition hover:border-accent-2/40 hover:bg-ink-soft/80 disabled:opacity-60"
+                [disabled]="confirmingOauthPick()"
+                (click)="confirmOauthPick(c)"
+              >
+                <div class="min-w-0">
+                  <p class="truncate font-semibold text-white">
+                    {{ c.username ? '@' + c.username : c.igUserId }}
+                  </p>
+                  <p class="mt-0.5 text-[11px] text-white/40">
+                    {{ c.accountType || 'BUSINESS' }} · {{ c.igUserId }}
+                  </p>
+                </div>
+                <span class="shrink-0 text-xs font-semibold text-accent-2">
+                  {{ 'instagram.pick_select' | t }}
+                </span>
+              </button>
+            }
+          }
+        </div>
       </div>
     </div>
   }

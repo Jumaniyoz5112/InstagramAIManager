@@ -16,9 +16,10 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 
 **Auth Phase-1 + H2 + H1 DONE.**
 **M0/M1 Instagram Connect & Media Sync (BE+UI) DONE** — default `INSTAGRAM_ENABLED=false`.
-**Post filter/video + metrics/comments sync DONE** (Liquibase 005).
+**Post filter/video + metrics/comments sync DONE** (metrics `004` CREATE; comments `005`).
 **Content Publishing DONE** (Liquibase 006; IMAGE/REELS/STORIES/CAROUSEL; public HTTPS staging).
-**Hali ochiq (ruxsat bilan):** Meta live OAuth (third-party portfolio); Platform Admin UI; deeper analytics; async publish queue.
+**Content AI analysis Phase-1 DONE** (Liquibase 007 CREATE; manual UI select).
+**Hali ochiq (ruxsat bilan):** Meta live OAuth (third-party portfolio); Platform Admin UI; analysis UI polish; async publish queue.
 
 ## Taqiqlangan (ruxsatsiz)
 
@@ -30,12 +31,13 @@ Multi-Tenant SaaS. `tenant_id` server membership / JWT claim’dan; client heade
 - Production bootstrap admin / sync-password
 - Platform tenant block/delete/subscription mutatsiyalari (H1 faqat read-only)
 - Liquibase rename: `logicalFilePath` / checksum buzish
+- **Test bosqich:** schema o‘zgarishi → **CREATE** (yangi jadval / asosiy CREATE faylga qo‘shish). **`ALTER` yozilmasin** — lokal DB o‘chirib qayta yaratiladi (`LIQUIBASE_DROP_FIRST` yoki drop database)
 
 ## Stack
 
 - `BE/`: Java 21, Spring Boot 4.1.2, `uzeduai.be` (Jackson 3: `tools.jackson.*`)
 - Profiles: `dev` (default), `prod`, `test`
-- Liquibase: **SQL** `001`…`004-create-instagram-core.sql`, `005-instagram-media-metrics-comments.sql`, `006-instagram-publish.sql`; `logicalFilePath` eski id
+- Liquibase: **SQL** `001`…`007`; yangi ustunlar test’da CREATE ichida; `logicalFilePath` eski id
 - `UI/`: Angular 22 + Tailwind 4, auth memory token, HttpOnly refresh, XSRF
 - Routes: `/auth/*`, `/app/{dashboard,tenants,workspaces,instagram,access}`
 - Page access: admin `/app/access`; PLATFORM_ADMIN hammasi ochiq

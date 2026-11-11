@@ -11,3 +11,7 @@ databaseChangeLog:
       file: db/changelog/changes/005-instagram-media-metrics-comments.sql
   - include:
       file: db/changelog/changes/006-instagram-publish.sql
+  - include:
+      file: db/changelog/changes/007-content-analysis-engagement.sql
+  - include:
+      file: db/changelog/changes/008-content-insights-scenarios.sql

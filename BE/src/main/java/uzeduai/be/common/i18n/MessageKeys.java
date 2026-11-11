@@ -41,6 +41,8 @@ public final class MessageKeys {
     public static final String INSTAGRAM_SYNC_IN_PROGRESS = "error.instagram.sync_in_progress";
     public static final String INSTAGRAM_NEEDS_REAUTH = "error.instagram.needs_reauth";
     public static final String INSTAGRAM_ACCOUNT_DISCOVERY_FAILED = "error.instagram.account_discovery_failed";
+    public static final String INSTAGRAM_OAUTH_PICK_INVALID = "error.instagram.oauth_pick_invalid";
+    public static final String INSTAGRAM_OAUTH_PICK_EXPIRED = "error.instagram.oauth_pick_expired";
     public static final String INSTAGRAM_PUBLISH_DISABLED = "error.instagram.publish_disabled";
     public static final String INSTAGRAM_PUBLISH_NOT_FOUND = "error.instagram.publish_not_found";
     public static final String INSTAGRAM_PUBLISH_INVALID = "error.instagram.publish_invalid";
@@ -49,6 +51,15 @@ public final class MessageKeys {
     public static final String INSTAGRAM_PUBLISH_FAILED = "error.instagram.publish_failed";
     public static final String INSTAGRAM_PUBLISH_ACCOUNT_INACTIVE = "error.instagram.publish_account_inactive";
     public static final String INSTAGRAM_PUBLISH_ASSET_NOT_FOUND = "error.instagram.publish_asset_not_found";
+
+    public static final String ANALYSIS_NOT_FOUND = "error.analysis.not_found";
+    public static final String ANALYSIS_DISABLED = "error.analysis.disabled";
+    public static final String ANALYSIS_FEEDBACK_NOT_ALLOWED = "error.analysis.feedback_not_allowed";
+    public static final String INSIGHTS_NOT_FOUND = "error.insights.not_found";
+    public static final String INSIGHTS_INSUFFICIENT_DATA = "error.insights.insufficient_data";
+    public static final String INSIGHTS_FAILED = "error.insights.failed";
+    public static final String SCENARIO_NOT_FOUND = "error.scenario.not_found";
+    public static final String SCENARIO_FAILED = "error.scenario.failed";
 
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";

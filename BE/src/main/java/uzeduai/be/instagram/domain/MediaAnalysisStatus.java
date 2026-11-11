@@ -5,5 +5,7 @@ public enum MediaAnalysisStatus {
     QUEUED,
     RUNNING,
     ANALYZED,
-    FAILED
+    FAILED,
+    /** User opted out — do not auto-queue vision analysis. */
+    SKIPPED
 }

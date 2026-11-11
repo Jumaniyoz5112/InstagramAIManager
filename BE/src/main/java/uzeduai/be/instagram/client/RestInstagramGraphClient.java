@@ -87,8 +87,12 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
     @Override
     public TokenExchangeResult refreshLongLivedToken(String currentAccessToken) {
         if (properties.isUnifiedLogin()) {
-            // System-user / business tokens from Unified Login typically do not use IG refresh endpoint.
-            return new TokenExchangeResult(currentAccessToken, null);
+            try {
+                return exchangeFacebookLongLived(currentAccessToken);
+            } catch (Exception ex) {
+                log.warn("Unified FB token refresh skipped: {}", ex.getMessage());
+                return new TokenExchangeResult(currentAccessToken, null);
+            }
         }
         String url = UriComponentsBuilder
                 .fromUriString(properties.getApiBaseUrl() + "/refresh_access_token")
@@ -100,50 +104,36 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public IgUserProfile fetchMe(String accessToken) {
-        if (properties.isUnifiedLogin()) {
-            // Instagram Login Compatible: graph.instagram.com /me after IG code exchange.
-            Optional<IgUserProfile> fromIgGraph = safe(() -> fetchIgFromInstagramGraphMe(accessToken));
-            if (fromIgGraph.isPresent()) {
-                return fromIgGraph.get();
-            }
-            // Business Integration System User token path (Facebook Graph).
-            Optional<IgUserProfile> fromAssigned = safe(() ->
-                    fetchFirstIgFromListBearer(fbApi("/me/assigned_instagram_accounts"), accessToken, "id,username"));
-            if (fromAssigned.isPresent()) {
-                return fromAssigned.get();
-            }
-            // Retry with query-param style for older Graph hosts.
-            Optional<IgUserProfile> fromAssignedQuery = safe(() ->
-                    fetchFirstIgFromList(fbApi("/me/assigned_instagram_accounts"), accessToken, "id,username"));
-            if (fromAssignedQuery.isPresent()) {
-                return fromAssignedQuery.get();
-            }
-            Optional<IgUserProfile> fromDebug = safe(() -> fetchIgFromDebugToken(accessToken));
-            if (fromDebug.isPresent()) {
-                return fromDebug.get();
-            }
-            Optional<IgUserProfile> fromClientBusiness = safe(() -> fetchIgFromClientBusiness(accessToken));
-            if (fromClientBusiness.isPresent()) {
-                return fromClientBusiness.get();
-            }
-            Optional<IgUserProfile> fromPages = safe(() -> fetchIgFromFacebookPages(accessToken));
-            if (fromPages.isPresent()) {
-                return fromPages.get();
-            }
-            Optional<IgUserProfile> fromBusiness = safe(() -> fetchIgFromBusinesses(accessToken));
-            if (fromBusiness.isPresent()) {
-                return fromBusiness.get();
-            }
+        List<IgUserProfile> accounts = discoverInstagramAccounts(accessToken);
+        if (accounts.isEmpty()) {
             throw new IllegalStateException(
-                    "No Instagram accounts found for Unified Login token. "
+                    "No Instagram accounts found for token. "
                             + "Confirm a professional IG account was shared in the Login dialog, "
-                            + "and that the Login Configuration requests Instagram assets."
+                            + "Page is linked, and Login Configuration requests Instagram (+ Page) assets."
             );
         }
-        return fetchIgFromInstagramGraphMe(accessToken)
-                .orElseThrow(() -> new IllegalStateException("Instagram /me returned empty profile"));
+        return accounts.getFirst();
+    }
+
+    @Override
+    public List<IgUserProfile> discoverInstagramAccounts(String accessToken) {
+        LinkedHashMap<String, IgUserProfile> byId = new LinkedHashMap<>();
+        if (properties.isUnifiedLogin()) {
+            // Prefer real end-user paths first; assigned_instagram_accounts is often empty for portfolio users.
+            addAll(byId, safeList(() -> listFromInstagramGraphMe(accessToken)));
+            addAll(byId, safeList(() -> listFromFacebookPages(accessToken)));
+            addAll(byId, safeList(() -> listFromBusinesses(accessToken)));
+            addAll(byId, safeList(() -> listFromClientBusiness(accessToken)));
+            addAll(byId, safeList(() -> listFromDebugToken(accessToken)));
+            addAll(byId, safeList(() ->
+                    listIgFromListBearer(fbApi("/me/assigned_instagram_accounts"), accessToken, "id,username")));
+            addAll(byId, safeList(() ->
+                    listIgFromList(fbApi("/me/assigned_instagram_accounts"), accessToken, "id,username")));
+        } else {
+            addAll(byId, safeList(() -> listFromInstagramGraphMe(accessToken)));
+        }
+        return List.copyOf(byId.values());
     }
 
     @Override
@@ -390,7 +380,16 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 .queryParam("code", code)
                 .toUriString();
         Map<String, Object> node = getMap(url);
-        return new TokenExchangeResult(stringVal(node, "access_token"), longVal(node, "expires_in"));
+        String shortLived = stringVal(node, "access_token");
+        if (shortLived == null || shortLived.isBlank()) {
+            throw new IllegalStateException("Facebook Graph code exchange returned no access_token");
+        }
+        try {
+            return exchangeFacebookLongLived(shortLived);
+        } catch (Exception ex) {
+            log.warn("fb_exchange_token failed, keeping short-lived FB token: {}", ex.getMessage());
+            return new TokenExchangeResult(shortLived, longVal(node, "expires_in"));
+        }
     }
 
     private TokenExchangeResult exchangeLongLived(String shortLivedToken) {
@@ -402,6 +401,22 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 .toUriString();
         Map<String, Object> node = getMap(url);
         return new TokenExchangeResult(stringVal(node, "access_token"), longVal(node, "expires_in"));
+    }
+
+    private TokenExchangeResult exchangeFacebookLongLived(String shortLivedToken) {
+        String url = UriComponentsBuilder
+                .fromUriString(fbApi("/oauth/access_token"))
+                .queryParam("grant_type", "fb_exchange_token")
+                .queryParam("client_id", properties.getAppId())
+                .queryParam("client_secret", properties.getAppSecret())
+                .queryParam("fb_exchange_token", shortLivedToken)
+                .toUriString();
+        Map<String, Object> node = getMap(url);
+        String token = stringVal(node, "access_token");
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("fb_exchange_token returned empty access_token");
+        }
+        return new TokenExchangeResult(token, longVal(node, "expires_in"));
     }
 
     private Map<String, Object> getMap(String url) {
@@ -505,17 +520,27 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 .body(MAP_TYPE);
     }
 
-    private Optional<IgUserProfile> safe(java.util.function.Supplier<Optional<IgUserProfile>> supplier) {
+    private static void addAll(LinkedHashMap<String, IgUserProfile> byId, List<IgUserProfile> profiles) {
+        for (IgUserProfile profile : profiles) {
+            if (profile.id() == null || profile.id().isBlank()) {
+                continue;
+            }
+            byId.putIfAbsent(profile.id(), profile);
+        }
+    }
+
+    private List<IgUserProfile> safeList(java.util.function.Supplier<List<IgUserProfile>> supplier) {
         try {
-            return supplier.get();
+            List<IgUserProfile> list = supplier.get();
+            return list != null ? list : List.of();
         } catch (Exception ex) {
             log.warn("Instagram account discovery step failed: {}", ex.getMessage());
-            return Optional.empty();
+            return List.of();
         }
     }
 
     @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchIgFromDebugToken(String userAccessToken) {
+    private List<IgUserProfile> listFromDebugToken(String userAccessToken) {
         String appToken = properties.getAppId() + "|" + properties.getAppSecret();
         String url = fbApi("/debug_token")
                 + "?input_token=" + URLEncoder.encode(userAccessToken, StandardCharsets.UTF_8)
@@ -523,15 +548,16 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
         Map<String, Object> root = getMap(url);
         Object dataObj = root == null ? null : root.get("data");
         if (!(dataObj instanceof Map<?, ?> data)) {
-            return Optional.empty();
+            return List.of();
         }
         log.warn("Unified Login debug_token type={} app_id={} user_id={} is_valid={} scopes={} granular_scopes={}",
                 data.get("type"), data.get("app_id"), data.get("user_id"), data.get("is_valid"),
                 data.get("scopes"), data.get("granular_scopes"));
         Object granular = data.get("granular_scopes");
         if (!(granular instanceof List<?> scopes)) {
-            return Optional.empty();
+            return List.of();
         }
+        List<IgUserProfile> out = new ArrayList<>();
         for (Object scopeItem : scopes) {
             if (!(scopeItem instanceof Map<?, ?> scopeMap)) {
                 continue;
@@ -541,7 +567,6 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
             if (!(targets instanceof List<?> ids) || ids.isEmpty()) {
                 continue;
             }
-            // Prefer Instagram-named scopes; otherwise probe target ids for username field.
             boolean likelyIg = scope.toLowerCase().contains("instagram");
             for (Object rawId : ids) {
                 if (rawId == null) {
@@ -553,18 +578,17 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 }
                 Optional<IgUserProfile> profile = fetchIgProfile(candidateId, userAccessToken);
                 if (profile.isPresent()) {
-                    return profile;
-                }
-                if (likelyIg) {
-                    return Optional.of(new IgUserProfile(candidateId, null, "BUSINESS"));
+                    out.add(profile.get());
+                } else if (likelyIg) {
+                    out.add(new IgUserProfile(candidateId, null, "BUSINESS"));
                 }
             }
         }
-        return Optional.empty();
+        return out;
     }
 
     @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchIgFromClientBusiness(String accessToken) {
+    private List<IgUserProfile> listFromClientBusiness(String accessToken) {
         String meUrl = fbApi("/me")
                 + "?fields=" + URLEncoder.encode("id,name,client_business_id", StandardCharsets.UTF_8)
                 + "&access_token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
@@ -572,27 +596,25 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
         String clientBusinessId = stringVal(me, "client_business_id");
         log.warn("Unified Login /me id={} client_business_id={}", stringVal(me, "id"), clientBusinessId);
         if (clientBusinessId == null || clientBusinessId.isBlank()) {
-            return Optional.empty();
+            return List.of();
         }
+        List<IgUserProfile> out = new ArrayList<>();
         for (String edge : List.of(
                 "owned_instagram_accounts",
                 "client_instagram_accounts",
                 "instagram_accounts",
                 "instagram_business_accounts"
         )) {
-            Optional<IgUserProfile> found = fetchFirstIgFromList(
+            out.addAll(listIgFromList(
                     fbApi("/" + clientBusinessId + "/" + edge),
                     accessToken,
                     "id,username"
-            );
-            if (found.isPresent()) {
-                return found;
-            }
+            ));
         }
-        return Optional.empty();
+        return out;
     }
 
-    private Optional<IgUserProfile> fetchIgFromInstagramGraphMe(String accessToken) {
+    private List<IgUserProfile> listFromInstagramGraphMe(String accessToken) {
         for (String fields : List.of("user_id,username,account_type", "id,username,account_type")) {
             String url = UriComponentsBuilder
                     .fromUriString(igApi("/me"))
@@ -602,14 +624,14 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
             Map<String, Object> node = getMap(url);
             String id = firstNonBlank(stringVal(node, "user_id"), stringVal(node, "id"));
             if (id != null && !id.isBlank()) {
-                return Optional.of(new IgUserProfile(
+                return List.of(new IgUserProfile(
                         id,
                         stringVal(node, "username"),
                         stringVal(node, "account_type")
                 ));
             }
         }
-        return Optional.empty();
+        return List.of();
     }
 
     private Optional<IgUserProfile> fetchIgProfile(String igId, String accessToken) {
@@ -632,8 +654,7 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
     }
 
     @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchIgFromFacebookPages(String accessToken) {
-        // Build manually: UriComponentsBuilder treats `{id,username}` as a URI template.
+    private List<IgUserProfile> listFromFacebookPages(String accessToken) {
         String url = fbApi("/me/accounts")
                 + "?fields=" + URLEncoder.encode(
                 "id,name,access_token,instagram_business_account{id,username}", StandardCharsets.UTF_8)
@@ -641,8 +662,9 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
         Map<String, Object> node = getMap(url);
         Object rawData = node == null ? null : node.get("data");
         if (!(rawData instanceof List<?> list)) {
-            return Optional.empty();
+            return List.of();
         }
+        List<IgUserProfile> out = new ArrayList<>();
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> page)) {
                 continue;
@@ -655,7 +677,7 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                     String pageToken = page.get("access_token") == null
                             ? null
                             : page.get("access_token").toString();
-                    return Optional.of(new IgUserProfile(
+                    out.add(new IgUserProfile(
                             id,
                             stringVal(account, "username"),
                             "BUSINESS",
@@ -664,11 +686,11 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 }
             }
         }
-        return Optional.empty();
+        return out;
     }
 
     @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchIgFromBusinesses(String accessToken) {
+    private List<IgUserProfile> listFromBusinesses(String accessToken) {
         String businessesUrl = UriComponentsBuilder
                 .fromUriString(fbApi("/me/businesses"))
                 .queryParam("fields", "id,name")
@@ -677,8 +699,9 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
         Map<String, Object> businesses = getMap(businessesUrl);
         Object raw = businesses == null ? null : businesses.get("data");
         if (!(raw instanceof List<?> list)) {
-            return Optional.empty();
+            return List.of();
         }
+        List<IgUserProfile> out = new ArrayList<>();
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> biz)) {
                 continue;
@@ -688,51 +711,50 @@ public class RestInstagramGraphClient implements InstagramGraphClient {
                 continue;
             }
             for (String edge : List.of("owned_instagram_accounts", "client_instagram_accounts", "instagram_accounts")) {
-                Optional<IgUserProfile> found = fetchFirstIgFromList(
+                out.addAll(listIgFromList(
                         fbApi("/" + businessId + "/" + edge),
                         accessToken,
                         "id,username"
-                );
-                if (found.isPresent()) {
-                    return found;
-                }
+                ));
             }
         }
-        return Optional.empty();
+        return out;
     }
 
-    @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchFirstIgFromList(String path, String accessToken, String fields) {
+    private List<IgUserProfile> listIgFromList(String path, String accessToken, String fields) {
         String url = path
                 + (path.contains("?") ? "&" : "?")
                 + "fields=" + URLEncoder.encode(fields, StandardCharsets.UTF_8)
                 + "&access_token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
-        return parseIgList(path, getMap(url));
+        return parseIgListAll(path, getMap(url));
     }
 
-    @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> fetchFirstIgFromListBearer(String path, String accessToken, String fields) {
+    private List<IgUserProfile> listIgFromListBearer(String path, String accessToken, String fields) {
         String url = path
                 + (path.contains("?") ? "&" : "?")
                 + "fields=" + URLEncoder.encode(fields, StandardCharsets.UTF_8);
-        return parseIgList(path + " (bearer)", getMapWithBearer(url, accessToken));
+        return parseIgListAll(path + " (bearer)", getMapWithBearer(url, accessToken));
     }
 
     @SuppressWarnings("unchecked")
-    private Optional<IgUserProfile> parseIgList(String pathLabel, Map<String, Object> node) {
+    private List<IgUserProfile> parseIgListAll(String pathLabel, Map<String, Object> node) {
         Object rawData = node == null ? null : node.get("data");
         if (!(rawData instanceof List<?> list) || list.isEmpty()) {
             log.warn("Unified Login list empty for {}", pathLabel);
-            return Optional.empty();
+            return List.of();
         }
-        if (list.getFirst() instanceof Map<?, ?> first) {
-            Map<String, Object> account = new LinkedHashMap<>((Map<String, Object>) first);
+        List<IgUserProfile> out = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> row)) {
+                continue;
+            }
+            Map<String, Object> account = new LinkedHashMap<>((Map<String, Object>) row);
             String id = stringVal(account, "id");
             if (id != null && !id.isBlank()) {
-                return Optional.of(new IgUserProfile(id, stringVal(account, "username"), "BUSINESS"));
+                out.add(new IgUserProfile(id, stringVal(account, "username"), "BUSINESS"));
             }
         }
-        return Optional.empty();
+        return out;
     }
 
     private String api(String path) {

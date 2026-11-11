@@ -2,11 +2,11 @@
 
 > Loyihaning asosiy texnik konteksti. Cursor va inson bir xil arxitektura bo‘yicha ishlashi shart.
 
-**Oxirgi yangilanish:** 2026-11-10  
+**Oxirgi yangilanish:** 2026-11-11  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth/H2/H1 + **M0/M1 Instagram Connect & Media Sync (BE+UI)** — **DONE**; post tip filter / video / metrics / comments sync — **DONE**; **Content Publishing (IMAGE/REELS/STORIES/CAROUSEL)** — **DONE** (public HTTPS staging kerak); Meta live OAuth sozlangan, same-portfolio discovery bo‘sh — **dev SUAT/user-token seed** orqali `mashhura01_2009` ACTIVE  
-**To‘xtatilgan:** Media Management CRUD (edit/delete library), AI Agent / Video Factory  
-**Keyingi (ruxsat bilan):** Third-party portfolio OAuth discovery; Platform Admin UI; deeper analytics; async publish queue  
+**Joriy bosqich:** Auth/H2/H1 + M0/M1 Instagram + Publishing — **DONE**; **Content AI analysis Phase-1** — **DONE**; **Corpus Insights + Next-post Scenario Phase-2** — **DONE** (text model `qwen2.5-coder:7b`; Liquibase 008)  
+**To‘xtatilgan:** Media Management CRUD (library edit/delete), Video Factory / multi-agent, Redis rewrite  
+**Keyingi (ruxsat bilan):** Platform Admin UI; async publish queue; FFmpeg keyframes  
 
 ---
 
@@ -19,7 +19,8 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - BE: Java 21, Spring Boot 4.1.2, `uzeduai.be`
 - UI: Angular 22 standalone + Tailwind 4
 - DB: PostgreSQL + Liquibase (**SQL** changelogs)
-- Redis/Ollama: hozir tegilmagan
+- Redis: hali Spring’ga ulanmagan
+- Ollama: lokal vision (`qwen2.5vl:7b`) via `ai-service`
 
 ## 3. Security holati
 
@@ -50,6 +51,25 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | M1 Instagram UI (connect / accounts / media / detail) | DONE |
 | Post media filter + video player + metrics/comments sync | DONE |
 | Instagram Content Publishing (feed/reels/stories/carousel) | DONE |
+| Content AI analysis Phase-1 (vision once + engagement 2×/day) | DONE |
+
+### Content AI analysis (Phase-1)
+
+- Model: **Ollama `qwen2.5vl:7b`** (bitta vision chaqiruv; multi-agent yo‘q); concurrency **1**
+- `ai-service` FastAPI (modullar: `prompts/`, `services/`, `schemas`, `config`; `main.py` faqat route): `GET /health`, `POST /analyze` (vision), `POST /insights` + `POST /scenario` (text)
+- **Manual only:** UI tanlash → `POST /media/analyze` yoki `POST /media/skip-analysis` (auto-enqueue yo‘q)
+- Status: `NOT_ANALYZED|QUEUED|RUNNING|ANALYZED|FAILED|SKIPPED`; kartada spinner; summary `content_analysis_results` dan (ALTER yo‘q)
+- Vision **bir marta** (tanlangan post); video Phase-1 da thumbnail
+- Engagement: `media_engagement_snapshots` — **08:00/20:00** `Asia/Tashkent` (like/comment/share/save); vision qayta emas
+- API: analyze/skip + `GET .../analysis`, `PUT .../analysis/feedback` (user `correctedSummary`/`userNote` → result JSON), `GET .../engagement-snapshots`
+- UI: kartada «Tahlilni ko‘rish» dialog — AI xulosa + tuzatish maydonlari
+- **Phase-2 Insights:** engagement score `likes+3×comments+2×shares+2×saves`; corpus = topN + lowN + ANALYZED mid; **bitta post kloni emas**
+- API: `GET/POST /api/v1/instagram/insights/*` (leaderboard, generate, latest, scenarios)
+- UI Instagram: Media | Chuqur tahlil tab — pattern + keyingi post ssenariya dialog
+- Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
+- Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
+- Local: Ollama + `ai-service` Python **3.11** (`qwen2.5vl:7b` + `qwen2.5-coder:7b`)
+- BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
 ### Instagram (M0/M1 BE+UI)
 
@@ -57,8 +77,10 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Crypto: `IG_TOKEN_ENCRYPTION_KEY` → AES-GCM; Hibernate `@Convert` Spring bean emas — `CryptoJpaInitializer` static encryptor wire qiladi
 - Storage: `STORAGE_ROOT` local FS (`StoragePort`) — MinIO keyin
 - Page: `INSTAGRAM` (`/app/instagram`) — grant via Access; PLATFORM_ADMIN auto
-- OAuth: Unified Login `config_id` (`POST /api/v1/instagram/oauth/start`, callback permitAll)
-- Same-portfolio Meta: user OAuth `assigned_instagram_accounts` bo‘sh bo‘lishi mumkin; System User Assign + token yoki **dev-only** `POST /api/v1/instagram/dev/seed-account` (`@Profile("dev")`)
+- OAuth Phase A: Unified Login `config_id` (`POST /oauth/start` + INSTAGRAM page gate; callback permitAll)
+- Discovery: `discoverInstagramAccounts` — IG `/me` → `/me/accounts` (Page token) → businesses → client_business → debug_token → `assigned_instagram_accounts` (oxirida)
+- N>1 akkaunt: in-memory pick (`?ig_pick=` → `GET/POST /oauth/pick/{id}`); FB user token `fb_exchange_token`
+- Same-portfolio fallback: **dev-only** `POST /dev/seed-account` (`@Profile("dev")`) — seed asosiy yo‘l emas
 - Media Graph: Facebook Login / SUAT tokenlar uchun `graph.facebook.com` + **Bearer** (query `access_token` mangle qilmasin); `graph.instagram.com` faqat Instagram Login tokenlari
 - Accounts: `GET /api/v1/instagram/accounts`, `POST .../{id}/sync`, `DELETE .../{id}`
 - Media: `GET /api/v1/instagram/media` (`mediaType` optional), `GET .../{mediaId}`, `GET .../{mediaId}/comments`
@@ -66,6 +88,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Publish types: `FEED_IMAGE` | `REELS` | `STORY_IMAGE` | `STORY_VIDEO` | `CAROUSEL` (JPEG / MP4|MOV; carousel 2–10)
 - Publish flow: store via `StoragePort` → signed public URL → Graph container → poll status → `media_publish`; Liquibase `006-instagram-publish.sql`
 - **Local publish:** `INSTAGRAM_PUBLIC_MEDIA_BASE_URL` = HTTPS tunnel (Meta localhost’ni o‘qimaydi); token scope `instagram_business_content_publish` (yoki FB Login `instagram_content_publish`)
+- **Remote UI test:** UI tunnel → `:4200` (proxy `/api`); `CORS_ALLOWED_ORIGINS` + `INSTAGRAM_FRONTEND_SUCCESS_URL` = UI origin; BE tunnel alohida (OAuth/public-media)
 - Sync enrich: Graph `like_count`/`comments_count`; insights `shares`/`saved` → DB; comments upsert (`instagram_media_comments`); insights/comments xato → null/skip, sync davom etadi
 - Liquibase: `005-…metrics-comments`, `006-…publish` (`instagram_publish_jobs` + `instagram_publish_assets`)
 - Scopes default: `…_basic,…_manage_insights,…_manage_comments,instagram_business_content_publish`
@@ -135,8 +158,12 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | `001-create-app-meta.sql` | `001-app-meta.sql` |
 | `002-create-identity-and-tenant.sql` | `002-identity-tenant.sql` |
 | `003-create-app-pages-access.sql` | `003-app-pages.sql` |
-| `004-create-instagram-core.sql` | (yangi changesetlar) |
+| `004-create-instagram-core.sql` | Instagram core + media metrics columns (CREATE) |
+| `005-instagram-media-metrics-comments.sql` | `instagram_media_comments` CREATE only |
+| `006-instagram-publish.sql` | publish jobs/assets |
+| `007-content-analysis-engagement.sql` | analyses + results + engagement snapshots |
 
+- **Test:** schema o‘zgarishi → CREATE / asosiy CREATE faylga qo‘shish; **`ALTER` yo‘q** — DB o‘chirib qayta yaratish
 - Rename: faqat fayl nomi; `logicalFilePath` + checksum saqlanadi — **003 ichiga INSTAGRAM qo‘shilmagan**
 - Drop-first: **prod/base = false**; local opt-in `LIQUIBASE_DROP_FIRST=true`
 
@@ -155,14 +182,14 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ## 4. Keyingi (ruxsat bilan)
 
-1. Meta App credentials — live OAuth (`INSTAGRAM_ENABLED=true` + App ID/Secret)
-2. Platform Admin UI (`/app/platform/...`)
-3. Deeper analytics / AI — alohida ruxsat
-4. Media Management CRUD / publishing — alohida ruxsat
+1. Platform Admin UI (`/app/platform/...`)
+2. Async publish queue
+3. Video FFmpeg keyframes (thumbnail o‘rniga)
+4. Media Management CRUD / Video Factory — alohida ruxsat
 
 ## 5. Qoidalar
 
-1. Media CRUD / Instagram **publishing** / AI — ruxsatsiz yo‘q (M1 connect/sync ruxsat berilgan)  
+1. Media CRUD / Video Factory / multi-agent — ruxsatsiz yo‘q (Phase-1 content analysis ruxsat berilgan)  
 2. Boot/Angular downgrade yo‘q  
 3. Secrets env’da; tokenlarni loglama  
 4. Tenant ID faqat server-verified membership (`TenantContext`); JWT claim’lar har requestda qayta tekshiriladi  
@@ -189,3 +216,5 @@ Batafsil kunlik jurnal: `.cursor/md/YYYY-MM-DD.md`
 | 2026-11-03 | M1 Instagram UI + OAuth frontend redirect; UI build OK |
 | 2026-11-10 | Live Meta connect/sync fix (crypto init, Bearer Graph, dev seed) |
 | 2026-11-10 | Media filter/video + metrics/comments Liquibase 005 + sync/API/UI |
+| 2026-11-11 | Content AI Phase-1: Ollama vision + Liquibase 007 + engagement 2×/day |
+| 2026-11-11 | Meta OAuth Phase A discovery/pick; Insights+Scenario Phase-2 (008, text model) |

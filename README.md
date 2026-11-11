@@ -18,7 +18,7 @@ InstagramAIManager/
 - JDK 21
 - Node.js 20+
 - PostgreSQL 16 (yoki Docker)
-- Python 3.11+ (AI service uchun)
+- Python **3.11** (AI service — `py -3.11`; 3.14 wheels yo‘q)
 
 ## Database
 
@@ -65,13 +65,18 @@ Dev server: `http://localhost:4200`
 ## AI service
 
 ```bash
+# Ollama ishlashi shart (qwen2.5vl:7b)
+ollama serve
+
 cd ai-service
-python -m venv .venv
+py -3.11 -m venv .venv
 # Windows
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+AI: `GET /health`, `POST /analyze`. BE `app.ai-service.base-url=http://localhost:8000`.
 
 ## Ishga tushirish tartibi
 

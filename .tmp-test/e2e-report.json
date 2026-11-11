@@ -1,0 +1,94 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "name": "login",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ai-service health",
+      "pass": true,
+      "detail": "{\"status\":\"UP\",\"service\":\"ai-service\",\"ollama\":true,\"model\":\"qwen2.5vl:7b\"}"
+    },
+    {
+      "name": "media list",
+      "pass": true,
+      "detail": "count=13"
+    },
+    {
+      "name": "skip-analysis",
+      "pass": true,
+      "detail": "{\"queued\":0,\"skipped\":1,\"ignored\":0,\"mediaIds\":[\"613ffd3e-9515-4f53-8cf1-c3f55e2c5d56\"]}"
+    },
+    {
+      "name": "skip persisted on media",
+      "pass": true,
+      "detail": "613ffd3e-9515-4f53-8cf1-c3f55e2c5d56"
+    },
+    {
+      "name": "enqueue analyze",
+      "pass": true,
+      "detail": "{\"queued\":5,\"skipped\":0,\"ignored\":0,\"mediaIds\":[\"63950d3d-ece7-414d-8d5d-7e0080a2e345\",\"81cb42d3-220b-4f5a-a803-845ef0ad1f4d\",\"ece7f189-0d46-4767-9707-da3b7e5c1125\",\"6a1634ca-19d3-49dc-9548-988197788a37\",\"50e4917f-9619-4264-aca3-0633974e7c15\"]}"
+    },
+    {
+      "name": "re-analyze ANALYZED ignored",
+      "pass": true,
+      "detail": "{\"queued\":0,\"skipped\":0,\"ignored\":1,\"mediaIds\":[]}"
+    },
+    {
+      "name": "queue drained",
+      "pass": true,
+      "detail": "pending=0"
+    },
+    {
+      "name": "no FAILED after run",
+      "pass": true,
+      "detail": "none"
+    },
+    {
+      "name": "has ANALYZED items",
+      "pass": true,
+      "detail": "count=12"
+    },
+    {
+      "name": "list analysisSummary present",
+      "pass": true,
+      "detail": "analyzed=12"
+    },
+    {
+      "name": "detail result + snapshots API",
+      "pass": true,
+      "detail": "checked=12"
+    },
+    {
+      "name": "skipped stays SKIPPED",
+      "pass": true,
+      "detail": "SKIPPED"
+    },
+    {
+      "name": "UI :4200 up",
+      "pass": true,
+      "detail": "http=200"
+    }
+  ],
+  "failures": [],
+  "finalCounts": {
+    "ANALYZED": 12,
+    "SKIPPED": 1
+  },
+  "analyzedSample": [
+    {
+      "id": "a8a9ec1b-2520-40d7-ad92-76ed3a44c3ec",
+      "summary": "Ололаримга салом"
+    },
+    {
+      "id": "243bdcbc-df31-4d50-a8f9-4c5053fbbadf",
+      "summary": "Шаарий жаҳон ва натуралий жумурларни борача қўллаб-қўрсатган бир босма"
+    },
+    {
+      "id": "63950d3d-ece7-414d-8d5d-7e0080a2e345",
+      "summary": "Ночная сцена с маяком под звездным небом, вызывающая ощущение спокойствия и красоты природы."
+    }
+  ]
+}

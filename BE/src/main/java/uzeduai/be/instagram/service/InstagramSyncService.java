@@ -280,6 +280,7 @@ public class InstagramSyncService {
         }
 
         syncComments(account, media);
+        // Content vision analysis is manual (UI select) — do not auto-enqueue.
     }
 
     private void enrichMetricsFromInsights(

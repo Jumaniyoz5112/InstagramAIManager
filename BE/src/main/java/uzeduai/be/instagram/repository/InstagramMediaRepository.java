@@ -4,8 +4,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import uzeduai.be.instagram.domain.InstagramMediaType;
+import uzeduai.be.instagram.domain.MediaAnalysisStatus;
 import uzeduai.be.instagram.entity.InstagramMedia;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,8 @@ public interface InstagramMediaRepository extends JpaRepository<InstagramMedia, 
             Pageable pageable
     );
 
+    List<InstagramMedia> findByTenantIdAndInstagramAccountId(UUID tenantId, UUID accountId);
+
     Page<InstagramMedia> findByTenantIdAndInstagramAccountIdAndMediaTypeOrderByPublishedAtDesc(
             UUID tenantId,
             UUID accountId,
@@ -42,4 +46,9 @@ public interface InstagramMediaRepository extends JpaRepository<InstagramMedia, 
     );
 
     boolean existsByTenantIdAndIgMediaId(UUID tenantId, String igMediaId);
+
+    List<InstagramMedia> findByAnalysisStatusOrderByPublishedAtDesc(
+            MediaAnalysisStatus analysisStatus,
+            Pageable pageable
+    );
 }

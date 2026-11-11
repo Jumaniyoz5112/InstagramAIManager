@@ -1,16 +1,22 @@
-import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
+  ContentAnalysis,
+  ContentScenario,
+  InsightReport,
   InstagramAccount,
   InstagramMedia,
   InstagramMediaComment,
   InstagramMediaType,
   InstagramService,
+  LeaderboardItem,
+  MediaAnalysisStatus,
+  OauthPickCandidate,
   PublishType
 } from '../../core/services/instagram.service';
 import { AppIcon } from '../../shared/ui/icon';
@@ -19,7 +25,7 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 
 @Component({
   selector: 'app-instagram',
-  imports: [AppIcon, TranslatePipe, DatePipe],
+  imports: [AppIcon, TranslatePipe, DatePipe, DecimalPipe],
   templateUrl: './instagram.html',
   styles: `
     :host {
@@ -35,9 +41,33 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
         overflow: hidden;
       }
     }
+
+    @keyframes ig-analyze-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes ig-analyze-pulse {
+      0%,
+      100% {
+        opacity: 0.45;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .ig-analyze-spin {
+      animation: ig-analyze-spin 0.9s linear infinite;
+    }
+
+    .ig-analyze-pulse {
+      animation: ig-analyze-pulse 1.4s ease-in-out infinite;
+    }
   `
 })
-export class InstagramPage implements OnInit {
+export class InstagramPage implements OnInit, OnDestroy {
   private readonly api = inject(InstagramService);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
@@ -69,6 +99,36 @@ export class InstagramPage implements OnInit {
   protected readonly publishFiles = signal<File[]>([]);
   protected readonly showPublish = signal(false);
 
+  protected readonly selectedForAnalysis = signal<Set<string>>(new Set());
+  protected readonly analysisActionBusy = signal(false);
+  protected readonly mediaAnalysis = signal<ContentAnalysis | null>(null);
+  protected readonly loadingAnalysis = signal(false);
+
+  protected readonly analysisDialogMedia = signal<InstagramMedia | null>(null);
+  protected readonly analysisDialogData = signal<ContentAnalysis | null>(null);
+  protected readonly loadingAnalysisDialog = signal(false);
+  protected readonly savingAnalysisFeedback = signal(false);
+  protected readonly feedbackSummary = signal('');
+  protected readonly feedbackNote = signal('');
+
+  protected readonly oauthPickId = signal<string | null>(null);
+  protected readonly oauthPickCandidates = signal<OauthPickCandidate[]>([]);
+  protected readonly loadingOauthPick = signal(false);
+  protected readonly confirmingOauthPick = signal(false);
+
+  protected readonly mainTab = signal<'media' | 'insights'>('media');
+  protected readonly leaderboard = signal<LeaderboardItem[]>([]);
+  protected readonly loadingLeaderboard = signal(false);
+  protected readonly insightReport = signal<InsightReport | null>(null);
+  protected readonly loadingInsights = signal(false);
+  protected readonly generatingInsights = signal(false);
+  protected readonly scenario = signal<ContentScenario | null>(null);
+  protected readonly generatingScenario = signal(false);
+  protected readonly scenarioBrief = signal('');
+  protected readonly showScenarioDialog = signal(false);
+
+  private analysisPollTimer: ReturnType<typeof setInterval> | null = null;
+
   protected readonly mediaFilters: MediaFilter[] = ['ALL', 'IMAGE', 'VIDEO', 'CAROUSEL_ALBUM'];
   protected readonly publishTypes: PublishType[] = [
     'FEED_IMAGE',
@@ -87,9 +147,19 @@ export class InstagramPage implements OnInit {
     return this.accounts().find((a) => a.id === id) ?? null;
   });
 
+  protected readonly selectedCount = computed(() => this.selectedForAnalysis().size);
+
+  protected readonly analyzingCount = computed(
+    () =>
+      this.media().filter(
+        (m) => m.analysisStatus === 'QUEUED' || m.analysisStatus === 'RUNNING'
+      ).length
+  );
+
   ngOnInit(): void {
     const connected = this.route.snapshot.queryParamMap.get('connected');
     const igError = this.route.snapshot.queryParamMap.get('ig_error');
+    const igPick = this.route.snapshot.queryParamMap.get('ig_pick');
     if (connected) {
       this.notice.set(this.i18n.t('instagram.connected'));
       void this.router.navigate([], {
@@ -97,6 +167,13 @@ export class InstagramPage implements OnInit {
         queryParams: {},
         replaceUrl: true
       });
+    } else if (igPick) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true
+      });
+      this.openOauthPick(igPick);
     } else if (igError) {
       const key = decodeURIComponent(igError);
       const translated = this.i18n.t(key);
@@ -108,6 +185,57 @@ export class InstagramPage implements OnInit {
       });
     }
     this.reload();
+  }
+
+  protected openOauthPick(pickId: string): void {
+    this.oauthPickId.set(pickId);
+    this.oauthPickCandidates.set([]);
+    this.loadingOauthPick.set(true);
+    this.error.set(null);
+    this.api.getOauthPickSession(pickId).subscribe({
+      next: (session) => {
+        this.oauthPickCandidates.set(session.candidates || []);
+        this.loadingOauthPick.set(false);
+      },
+      error: (err: unknown) => {
+        this.loadingOauthPick.set(false);
+        this.closeOauthPick();
+        this.error.set(translateApiError(this.i18n, err, 'instagram.pick_load_failed'));
+      }
+    });
+  }
+
+  protected closeOauthPick(): void {
+    this.oauthPickId.set(null);
+    this.oauthPickCandidates.set([]);
+    this.loadingOauthPick.set(false);
+    this.confirmingOauthPick.set(false);
+  }
+
+  protected confirmOauthPick(candidate: OauthPickCandidate): void {
+    const pickId = this.oauthPickId();
+    if (!pickId) {
+      return;
+    }
+    this.confirmingOauthPick.set(true);
+    this.error.set(null);
+    this.api.confirmOauthPick(pickId, candidate.igUserId).subscribe({
+      next: (account) => {
+        this.confirmingOauthPick.set(false);
+        this.closeOauthPick();
+        this.notice.set(this.i18n.t('instagram.connected'));
+        this.selectedAccountId.set(account.id);
+        this.loadAccounts();
+      },
+      error: (err: unknown) => {
+        this.confirmingOauthPick.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.pick_confirm_failed'));
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.stopAnalysisPoll();
   }
 
   protected reload(): void {
@@ -139,7 +267,155 @@ export class InstagramPage implements OnInit {
   protected selectAccount(accountId: string): void {
     this.selectedAccountId.set(accountId);
     this.selectedMedia.set(null);
+    this.clearAnalysisSelection();
     this.loadMedia(0);
+    if (this.mainTab() === 'insights') {
+      this.loadInsightsPanel();
+    }
+  }
+
+  protected setMainTab(tab: 'media' | 'insights'): void {
+    this.mainTab.set(tab);
+    if (tab === 'insights') {
+      this.loadInsightsPanel();
+    }
+  }
+
+  protected loadInsightsPanel(): void {
+    const accountId = this.selectedAccountId();
+    if (!accountId) {
+      this.leaderboard.set([]);
+      this.insightReport.set(null);
+      this.scenario.set(null);
+      return;
+    }
+    this.loadingLeaderboard.set(true);
+    this.api.leaderboard(accountId, 20).subscribe({
+      next: (items) => {
+        this.leaderboard.set(items);
+        this.loadingLeaderboard.set(false);
+      },
+      error: (err: unknown) => {
+        this.loadingLeaderboard.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_load_failed'));
+      }
+    });
+    this.loadingInsights.set(true);
+    this.api.latestInsights(accountId).subscribe({
+      next: (report) => {
+        this.insightReport.set(report);
+        this.loadingInsights.set(false);
+        if (report.status === 'READY') {
+          this.api.latestScenario(report.id).subscribe({
+            next: (sc) => this.scenario.set(sc),
+            error: () => this.scenario.set(null)
+          });
+        } else {
+          this.scenario.set(null);
+        }
+      },
+      error: () => {
+        this.insightReport.set(null);
+        this.scenario.set(null);
+        this.loadingInsights.set(false);
+      }
+    });
+  }
+
+  protected generateInsights(): void {
+    const accountId = this.selectedAccountId();
+    if (!accountId) {
+      return;
+    }
+    this.generatingInsights.set(true);
+    this.error.set(null);
+    this.api.generateInsights(accountId).subscribe({
+      next: (report) => {
+        this.generatingInsights.set(false);
+        this.insightReport.set(report);
+        this.scenario.set(null);
+        this.notice.set(this.i18n.t('instagram.insights_ready'));
+        this.loadInsightsPanel();
+      },
+      error: (err: unknown) => {
+        this.generatingInsights.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_failed'));
+      }
+    });
+  }
+
+  protected scenarioBriefChange(event: Event): void {
+    this.scenarioBrief.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected openScenarioDialog(): void {
+    this.showScenarioDialog.set(true);
+  }
+
+  protected closeScenarioDialog(): void {
+    this.showScenarioDialog.set(false);
+  }
+
+  protected generateScenario(): void {
+    const report = this.insightReport();
+    if (!report || report.status !== 'READY') {
+      this.error.set(this.i18n.t('instagram.insights_need_report'));
+      return;
+    }
+    this.generatingScenario.set(true);
+    this.error.set(null);
+    this.api
+      .generateScenario(report.id, {
+        brief: this.scenarioBrief().trim() || null
+      })
+      .subscribe({
+        next: (sc) => {
+          this.generatingScenario.set(false);
+          this.scenario.set(sc);
+          this.showScenarioDialog.set(true);
+          this.notice.set(this.i18n.t('instagram.scenario_ready'));
+        },
+        error: (err: unknown) => {
+          this.generatingScenario.set(false);
+          this.error.set(translateApiError(this.i18n, err, 'instagram.scenario_failed'));
+        }
+      });
+  }
+
+  protected insightList(key: string): string[] {
+    const result = this.insightReport()?.result;
+    const value = result?.[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map(String).map((s) => s.trim()).filter(Boolean);
+  }
+
+  protected insightText(key: string): string | null {
+    const value = this.insightReport()?.result?.[key];
+    if (value == null || value === '') {
+      return null;
+    }
+    return String(value);
+  }
+
+  protected scenarioText(key: string): string | null {
+    const value = this.scenario()?.result?.[key];
+    if (value == null || value === '') {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(String).join('\n');
+    }
+    return String(value);
+  }
+
+  protected scenarioList(key: string): string[] {
+    const value = this.scenario()?.result?.[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map(String).map((s) => s.trim()).filter(Boolean);
   }
 
   protected setMediaFilter(filter: MediaFilter): void {
@@ -147,20 +423,25 @@ export class InstagramPage implements OnInit {
       return;
     }
     this.mediaFilter.set(filter);
+    this.clearAnalysisSelection();
     this.loadMedia(0);
   }
 
-  protected loadMedia(page: number): void {
+  protected loadMedia(page: number, opts?: { silent?: boolean }): void {
     const accountId = this.selectedAccountId();
     const filter = this.mediaFilter();
     const mediaType: InstagramMediaType | null = filter === 'ALL' ? null : filter;
-    this.loadingMedia.set(true);
+    if (!opts?.silent) {
+      this.loadingMedia.set(true);
+    }
     this.api.listMedia(accountId, page, 20, mediaType).subscribe({
       next: (res) => {
         this.media.set(res.content);
         this.mediaPage.set(res.page);
         this.mediaTotalPages.set(res.totalPages);
         this.loadingMedia.set(false);
+        this.syncAnalysisPoll(res.content);
+        this.refreshOpenDetailAnalysis(res.content);
       },
       error: (err: unknown) => {
         this.loadingMedia.set(false);
@@ -225,16 +506,20 @@ export class InstagramPage implements OnInit {
   protected openMedia(item: InstagramMedia): void {
     this.loadingDetail.set(true);
     this.loadingComments.set(true);
+    this.loadingAnalysis.set(true);
     this.selectedMedia.set(item);
     this.comments.set([]);
+    this.mediaAnalysis.set(null);
     this.carouselIndex.set(0);
     this.api.getMedia(item.id).subscribe({
       next: (detail) => {
         this.selectedMedia.set(detail);
         this.loadingDetail.set(false);
+        this.loadAnalysisIfAny(detail);
       },
       error: (err: unknown) => {
         this.loadingDetail.set(false);
+        this.loadingAnalysis.set(false);
         this.error.set(translateApiError(this.i18n, err, 'instagram.media_load_failed'));
       }
     });
@@ -253,7 +538,322 @@ export class InstagramPage implements OnInit {
   protected closeDetail(): void {
     this.selectedMedia.set(null);
     this.comments.set([]);
+    this.mediaAnalysis.set(null);
     this.carouselIndex.set(0);
+  }
+
+  protected openAnalysisDialog(item: InstagramMedia, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (item.analysisStatus !== 'ANALYZED' && item.analysisStatus !== 'FAILED') {
+      return;
+    }
+    this.analysisDialogMedia.set(item);
+    this.analysisDialogData.set(null);
+    this.feedbackSummary.set('');
+    this.feedbackNote.set('');
+    this.loadingAnalysisDialog.set(true);
+    this.api.getAnalysis(item.id).subscribe({
+      next: (analysis) => {
+        this.analysisDialogData.set(analysis);
+        this.feedbackSummary.set(String(analysis.result?.['correctedSummary'] ?? ''));
+        this.feedbackNote.set(String(analysis.result?.['userNote'] ?? ''));
+        this.loadingAnalysisDialog.set(false);
+      },
+      error: (err: unknown) => {
+        this.loadingAnalysisDialog.set(false);
+        this.closeAnalysisDialog();
+        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_failed'));
+      }
+    });
+  }
+
+  protected closeAnalysisDialog(): void {
+    this.analysisDialogMedia.set(null);
+    this.analysisDialogData.set(null);
+    this.loadingAnalysisDialog.set(false);
+    this.savingAnalysisFeedback.set(false);
+    this.feedbackSummary.set('');
+    this.feedbackNote.set('');
+  }
+
+  protected feedbackSummaryChange(event: Event): void {
+    this.feedbackSummary.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected feedbackNoteChange(event: Event): void {
+    this.feedbackNote.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected saveAnalysisFeedback(): void {
+    const media = this.analysisDialogMedia();
+    if (!media || media.analysisStatus !== 'ANALYZED') {
+      return;
+    }
+    this.savingAnalysisFeedback.set(true);
+    this.error.set(null);
+    this.api
+      .saveAnalysisFeedback(media.id, {
+        correctedSummary: this.feedbackSummary().trim() || null,
+        userNote: this.feedbackNote().trim() || null
+      })
+      .subscribe({
+        next: (analysis) => {
+          this.savingAnalysisFeedback.set(false);
+          this.analysisDialogData.set(analysis);
+          const summary =
+            this.analysisResultText(analysis) || media.analysisSummary || null;
+          this.media.update((list) =>
+            list.map((m) => (m.id === media.id ? { ...m, analysisSummary: summary } : m))
+          );
+          this.analysisDialogMedia.set({ ...media, analysisSummary: summary });
+          const open = this.selectedMedia();
+          if (open?.id === media.id) {
+            this.selectedMedia.set({ ...open, analysisSummary: summary });
+            this.mediaAnalysis.set(analysis);
+          }
+          this.notice.set(this.i18n.t('instagram.analysis_feedback_saved'));
+        },
+        error: (err: unknown) => {
+          this.savingAnalysisFeedback.set(false);
+          this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_feedback_failed'));
+        }
+      });
+  }
+
+  protected isSelectedForAnalysis(id: string): boolean {
+    return this.selectedForAnalysis().has(id);
+  }
+
+  protected toggleAnalysisSelect(item: InstagramMedia, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = new Set(this.selectedForAnalysis());
+    if (next.has(item.id)) {
+      next.delete(item.id);
+    } else {
+      next.add(item.id);
+    }
+    this.selectedForAnalysis.set(next);
+  }
+
+  protected clearAnalysisSelection(): void {
+    this.selectedForAnalysis.set(new Set());
+  }
+
+  protected selectAllVisibleForAnalysis(): void {
+    const next = new Set(this.selectedForAnalysis());
+    for (const m of this.media()) {
+      if (m.analysisStatus === 'NOT_ANALYZED' || m.analysisStatus === 'FAILED') {
+        next.add(m.id);
+      }
+    }
+    this.selectedForAnalysis.set(next);
+  }
+
+  protected analyzeSelected(): void {
+    const ids = [...this.selectedForAnalysis()];
+    if (!ids.length) {
+      this.error.set(this.i18n.t('instagram.analysis_need_selection'));
+      return;
+    }
+    this.runAnalyze(ids);
+  }
+
+  protected skipSelected(): void {
+    const ids = [...this.selectedForAnalysis()];
+    if (!ids.length) {
+      this.error.set(this.i18n.t('instagram.analysis_need_selection'));
+      return;
+    }
+    this.runSkip(ids);
+  }
+
+  protected analyzeOne(item: InstagramMedia, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.runAnalyze([item.id]);
+  }
+
+  protected skipOne(item: InstagramMedia, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.runSkip([item.id]);
+  }
+
+  private runAnalyze(ids: string[]): void {
+    this.analysisActionBusy.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+    this.api.analyzeMedia(ids).subscribe({
+      next: (res) => {
+        this.analysisActionBusy.set(false);
+        this.clearAnalysisSelection();
+        this.notice.set(this.i18n.t('instagram.analysis_queued', [res.queued]));
+        this.loadMedia(this.mediaPage(), { silent: true });
+      },
+      error: (err: unknown) => {
+        this.analysisActionBusy.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_failed'));
+      }
+    });
+  }
+
+  private runSkip(ids: string[]): void {
+    this.analysisActionBusy.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+    this.api.skipAnalysis(ids).subscribe({
+      next: (res) => {
+        this.analysisActionBusy.set(false);
+        this.clearAnalysisSelection();
+        this.notice.set(this.i18n.t('instagram.analysis_skipped', [res.skipped]));
+        this.loadMedia(this.mediaPage(), { silent: true });
+      },
+      error: (err: unknown) => {
+        this.analysisActionBusy.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_skip_failed'));
+      }
+    });
+  }
+
+  private loadAnalysisIfAny(detail: InstagramMedia): void {
+    if (
+      detail.analysisStatus !== 'ANALYZED' &&
+      detail.analysisStatus !== 'FAILED' &&
+      detail.analysisStatus !== 'QUEUED' &&
+      detail.analysisStatus !== 'RUNNING'
+    ) {
+      this.mediaAnalysis.set(null);
+      this.loadingAnalysis.set(false);
+      return;
+    }
+    this.loadingAnalysis.set(true);
+    this.api.getAnalysis(detail.id).subscribe({
+      next: (analysis) => {
+        this.mediaAnalysis.set(analysis);
+        this.loadingAnalysis.set(false);
+      },
+      error: () => {
+        this.mediaAnalysis.set(null);
+        this.loadingAnalysis.set(false);
+      }
+    });
+  }
+
+  private syncAnalysisPoll(items: InstagramMedia[]): void {
+    const busy = items.some(
+      (m) => m.analysisStatus === 'QUEUED' || m.analysisStatus === 'RUNNING'
+    );
+    if (busy) {
+      this.startAnalysisPoll();
+    } else {
+      this.stopAnalysisPoll();
+    }
+  }
+
+  private startAnalysisPoll(): void {
+    if (this.analysisPollTimer) {
+      return;
+    }
+    this.analysisPollTimer = setInterval(() => {
+      this.loadMedia(this.mediaPage(), { silent: true });
+    }, 3000);
+  }
+
+  private stopAnalysisPoll(): void {
+    if (this.analysisPollTimer) {
+      clearInterval(this.analysisPollTimer);
+      this.analysisPollTimer = null;
+    }
+  }
+
+  private refreshOpenDetailAnalysis(items: InstagramMedia[]): void {
+    const open = this.selectedMedia();
+    if (!open) {
+      return;
+    }
+    const updated = items.find((m) => m.id === open.id);
+    if (!updated) {
+      return;
+    }
+    if (updated.analysisStatus !== open.analysisStatus || updated.analysisSummary !== open.analysisSummary) {
+      this.selectedMedia.set({ ...open, ...updated });
+      this.loadAnalysisIfAny(updated);
+    }
+  }
+
+  protected analysisStatusKey(status: MediaAnalysisStatus | string): string {
+    return `instagram.analysis.status.${status}`;
+  }
+
+  protected analysisStatusTone(status: MediaAnalysisStatus | string): string {
+    switch (status) {
+      case 'ANALYZED':
+        return 'bg-accent-2/20 text-accent-2';
+      case 'QUEUED':
+      case 'RUNNING':
+        return 'bg-warn/20 text-warn';
+      case 'FAILED':
+        return 'bg-accent/20 text-accent';
+      case 'SKIPPED':
+        return 'bg-white/10 text-white/45';
+      default:
+        return 'bg-white/10 text-white/55';
+    }
+  }
+
+  protected isAnalyzing(status: MediaAnalysisStatus | string): boolean {
+    return status === 'QUEUED' || status === 'RUNNING';
+  }
+
+  protected analysisResultText(analysis: ContentAnalysis | null): string | null {
+    const result = analysis?.result;
+    if (!result) {
+      return null;
+    }
+    const summary = result['correctedSummary'] ?? result['summaryUz'] ?? result['mainTopic'];
+    return summary != null && String(summary).trim() ? String(summary) : null;
+  }
+
+  protected analysisAiSummary(analysis: ContentAnalysis | null): string | null {
+    const result = analysis?.result;
+    if (!result) {
+      return null;
+    }
+    const summary = result['summaryUz'] ?? result['mainTopic'];
+    return summary != null && String(summary).trim() ? String(summary) : null;
+  }
+
+  protected analysisList(analysis: ContentAnalysis | null, key: string): string[] {
+    const value = analysis?.result?.[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map(String).map((s) => s.trim()).filter(Boolean);
+  }
+
+  protected analysisStyleText(analysis: ContentAnalysis | null): string | null {
+    const style = analysis?.result?.['visualStyle'];
+    if (!style || typeof style !== 'object') {
+      return this.analysisField(analysis, 'visualStyle');
+    }
+    const obj = style as Record<string, unknown>;
+    const parts = [obj['mood'], obj['composition'], Array.isArray(obj['colors']) ? obj['colors'].join(', ') : obj['colors']]
+      .map((v) => (v != null ? String(v).trim() : ''))
+      .filter(Boolean);
+    return parts.length ? parts.join(' · ') : null;
+  }
+
+  protected analysisField(analysis: ContentAnalysis | null, key: string): string | null {
+    const value = analysis?.result?.[key];
+    if (value == null || value === '') {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(String).join(', ');
+    }
+    return String(value);
   }
 
   protected previewUrl(item: InstagramMedia): string | null {

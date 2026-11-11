@@ -1,16 +1,5 @@
 --liquibase formatted sql
 
---changeset system:005-instagram-media-metrics
---preconditions onFail:MARK_RAN onError:HALT
---precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instagram_media' AND column_name = 'like_count'
-
-ALTER TABLE instagram_media
-    ADD COLUMN like_count INT,
-    ADD COLUMN comments_count INT,
-    ADD COLUMN shares_count INT,
-    ADD COLUMN saves_count INT,
-    ADD COLUMN insights_synced_at TIMESTAMPTZ;
-
 --changeset system:005-instagram-media-comments
 --preconditions onFail:MARK_RAN onError:HALT
 --precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'instagram_media_comments'
@@ -37,8 +26,3 @@ CREATE INDEX idx_instagram_media_comments_media ON instagram_media_comments (ins
 CREATE INDEX idx_instagram_media_comments_parent ON instagram_media_comments (instagram_media_id, parent_ig_comment_id);
 
 --rollback DROP TABLE IF EXISTS instagram_media_comments;
---rollback ALTER TABLE instagram_media DROP COLUMN IF EXISTS insights_synced_at;
---rollback ALTER TABLE instagram_media DROP COLUMN IF EXISTS saves_count;
---rollback ALTER TABLE instagram_media DROP COLUMN IF EXISTS shares_count;
---rollback ALTER TABLE instagram_media DROP COLUMN IF EXISTS comments_count;
---rollback ALTER TABLE instagram_media DROP COLUMN IF EXISTS like_count;

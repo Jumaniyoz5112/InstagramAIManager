@@ -6,7 +6,13 @@ import { ApiResponse } from '../auth/auth.models';
 
 export type InstagramAccountStatus = 'ACTIVE' | 'NEEDS_REAUTH' | 'DISCONNECTED' | 'ERROR';
 export type InstagramMediaType = 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM' | 'REELS' | 'UNKNOWN';
-export type MediaAnalysisStatus = 'NOT_ANALYZED' | 'QUEUED' | 'RUNNING' | 'ANALYZED' | 'FAILED';
+export type MediaAnalysisStatus =
+  | 'NOT_ANALYZED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'ANALYZED'
+  | 'FAILED'
+  | 'SKIPPED';
 export type SyncJobStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
 
 export interface InstagramAccount {
@@ -42,11 +48,33 @@ export interface InstagramMedia {
   permalink: string | null;
   publishedAt: string | null;
   analysisStatus: MediaAnalysisStatus;
+  analysisSummary: string | null;
   likeCount: number | null;
   commentsCount: number | null;
   sharesCount: number | null;
   savesCount: number | null;
   children: InstagramMediaChild[] | null;
+}
+
+export interface ContentAnalysis {
+  id: string | null;
+  mediaId: string;
+  analysisKind: string;
+  status: 'QUEUED' | 'RUNNING' | 'ANALYZED' | 'FAILED';
+  modelName: string | null;
+  promptVersion: string | null;
+  schemaVersion: string | null;
+  result: Record<string, unknown> | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface AnalysisActionResult {
+  queued: number;
+  skipped: number;
+  ignored: number;
+  mediaIds: string[];
 }
 
 export interface InstagramMediaComment {
@@ -84,6 +112,64 @@ export interface OauthStartResponse {
   state: string;
 }
 
+export interface OauthPickCandidate {
+  igUserId: string;
+  username: string | null;
+  accountType: string | null;
+}
+
+export interface OauthPickSession {
+  pickId: string;
+  candidates: OauthPickCandidate[];
+}
+
+export interface LeaderboardItem {
+  mediaId: string;
+  igMediaId: string;
+  mediaType: InstagramMediaType;
+  captionPreview: string | null;
+  thumbnailUrl: string | null;
+  likeCount: number | null;
+  commentsCount: number | null;
+  sharesCount: number | null;
+  savesCount: number | null;
+  engagementScore: number;
+  rank: number;
+  bucket: string;
+  analysisStatus: MediaAnalysisStatus;
+  analysisSummary: string | null;
+}
+
+export interface InsightReport {
+  id: string;
+  accountId: string | null;
+  status: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
+  modelName: string | null;
+  promptVersion: string | null;
+  schemaVersion: string | null;
+  inputSnapshot: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface ContentScenario {
+  id: string;
+  insightReportId: string;
+  status: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
+  brief: string | null;
+  modelName: string | null;
+  promptVersion: string | null;
+  schemaVersion: string | null;
+  result: Record<string, unknown> | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
 export type PublishType = 'FEED_IMAGE' | 'REELS' | 'STORY_IMAGE' | 'STORY_VIDEO' | 'CAROUSEL';
 export type PublishJobStatus =
   | 'PENDING'
@@ -116,6 +202,24 @@ export class InstagramService {
   startOauth(): Observable<OauthStartResponse> {
     return this.http
       .post<ApiResponse<OauthStartResponse>>(`${this.baseUrl}/oauth/start`, {}, { withCredentials: true })
+      .pipe(map((res) => res.data));
+  }
+
+  getOauthPickSession(pickId: string): Observable<OauthPickSession> {
+    return this.http
+      .get<ApiResponse<OauthPickSession>>(`${this.baseUrl}/oauth/pick/${pickId}`, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  confirmOauthPick(pickId: string, igUserId: string): Observable<InstagramAccount> {
+    return this.http
+      .post<ApiResponse<InstagramAccount>>(
+        `${this.baseUrl}/oauth/pick/${pickId}/confirm`,
+        { igUserId },
+        { withCredentials: true }
+      )
       .pipe(map((res) => res.data));
   }
 
@@ -169,6 +273,94 @@ export class InstagramService {
   listComments(mediaId: string): Observable<InstagramMediaComment[]> {
     return this.http
       .get<ApiResponse<InstagramMediaComment[]>>(`${this.baseUrl}/media/${mediaId}/comments`, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  analyzeMedia(mediaIds: string[]): Observable<AnalysisActionResult> {
+    return this.http
+      .post<ApiResponse<AnalysisActionResult>>(
+        `${this.baseUrl}/media/analyze`,
+        { mediaIds },
+        { withCredentials: true }
+      )
+      .pipe(map((res) => res.data));
+  }
+
+  skipAnalysis(mediaIds: string[]): Observable<AnalysisActionResult> {
+    return this.http
+      .post<ApiResponse<AnalysisActionResult>>(
+        `${this.baseUrl}/media/skip-analysis`,
+        { mediaIds },
+        { withCredentials: true }
+      )
+      .pipe(map((res) => res.data));
+  }
+
+  getAnalysis(mediaId: string): Observable<ContentAnalysis> {
+    return this.http
+      .get<ApiResponse<ContentAnalysis>>(`${this.baseUrl}/media/${mediaId}/analysis`, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  saveAnalysisFeedback(
+    mediaId: string,
+    body: { correctedSummary?: string | null; userNote?: string | null }
+  ): Observable<ContentAnalysis> {
+    return this.http
+      .put<ApiResponse<ContentAnalysis>>(`${this.baseUrl}/media/${mediaId}/analysis/feedback`, body, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  leaderboard(accountId: string, limit = 20): Observable<LeaderboardItem[]> {
+    const params = new HttpParams().set('accountId', accountId).set('limit', limit);
+    return this.http
+      .get<ApiResponse<LeaderboardItem[]>>(`${this.baseUrl}/insights/leaderboard`, {
+        params,
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  generateInsights(accountId: string): Observable<InsightReport> {
+    const params = new HttpParams().set('accountId', accountId);
+    return this.http
+      .post<ApiResponse<InsightReport>>(`${this.baseUrl}/insights/generate`, {}, {
+        params,
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  latestInsights(accountId: string): Observable<InsightReport> {
+    const params = new HttpParams().set('accountId', accountId);
+    return this.http
+      .get<ApiResponse<InsightReport>>(`${this.baseUrl}/insights/latest`, {
+        params,
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  generateScenario(
+    reportId: string,
+    body: { brief?: string | null; preferredFormat?: string | null } = {}
+  ): Observable<ContentScenario> {
+    return this.http
+      .post<ApiResponse<ContentScenario>>(`${this.baseUrl}/insights/${reportId}/scenarios`, body, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  latestScenario(reportId: string): Observable<ContentScenario> {
+    return this.http
+      .get<ApiResponse<ContentScenario>>(`${this.baseUrl}/insights/${reportId}/scenarios/latest`, {
         withCredentials: true
       })
       .pipe(map((res) => res.data));

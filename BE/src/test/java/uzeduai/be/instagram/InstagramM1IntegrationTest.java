@@ -48,6 +48,14 @@ class InstagramM1IntegrationTest {
                 "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'instagram_media' AND column_name = 'like_count'",
                 Integer.class
         );
+        Integer analyses = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'content_analyses'",
+                Integer.class
+        );
+        Integer snapshots = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'media_engagement_snapshots'",
+                Integer.class
+        );
         Integer page = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM app_pages WHERE code = 'INSTAGRAM'",
                 Integer.class
@@ -56,6 +64,8 @@ class InstagramM1IntegrationTest {
         assertThat(media).isEqualTo(1);
         assertThat(comments).isEqualTo(1);
         assertThat(likeCountCol).isEqualTo(1);
+        assertThat(analyses).isEqualTo(1);
+        assertThat(snapshots).isEqualTo(1);
         assertThat(page).isEqualTo(1);
     }
 

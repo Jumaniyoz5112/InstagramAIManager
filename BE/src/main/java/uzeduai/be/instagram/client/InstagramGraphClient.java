@@ -12,6 +12,12 @@ public interface InstagramGraphClient {
 
     IgUserProfile fetchMe(String accessToken);
 
+    /**
+     * Discover all Instagram Business/Creator accounts reachable with the token (deduped by id).
+     * Empty list means discovery failed for this token (caller maps to user-facing error).
+     */
+    List<IgUserProfile> discoverInstagramAccounts(String accessToken);
+
     MediaPage fetchMediaPage(String igUserId, String accessToken, String afterCursor);
 
     List<Map<String, Object>> fetchCarouselChildren(String igMediaId, String accessToken);

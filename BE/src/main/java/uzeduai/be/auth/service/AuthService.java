@@ -154,6 +154,26 @@ public class AuthService {
         );
         User user = userRepository.findByEmailIgnoreCase(request.email().trim())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_INVALID_CREDENTIALS));
+
+        // Convenience: sole tenant membership → activate earliest workspace on login
+        // (avoids Instagram/connect blocking after fresh DB / bootstrap).
+        List<TenantMember> memberships = tenantMemberRepository.findByUserIdWithTenant(user.getId());
+        if (memberships.size() == 1) {
+            TenantMember membership = memberships.getFirst();
+            UUID tenantId = membership.getTenant().getId();
+            List<Workspace> workspaces = workspaceRepository.findByTenantIdOrderByCreatedAtAsc(tenantId);
+            if (!workspaces.isEmpty()) {
+                return issueSession(
+                        user,
+                        tenantId,
+                        workspaces.getFirst().getId(),
+                        membership.getRole(),
+                        httpRequest,
+                        httpResponse
+                );
+            }
+        }
+
         return issueSession(user, null, null, null, httpRequest, httpResponse);
     }
 

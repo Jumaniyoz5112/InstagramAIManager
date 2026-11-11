@@ -31,6 +31,11 @@ public class NoopInstagramGraphClient implements InstagramGraphClient {
     }
 
     @Override
+    public List<IgUserProfile> discoverInstagramAccounts(String accessToken) {
+        throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
+    }
+
+    @Override
     public MediaPage fetchMediaPage(String igUserId, String accessToken, String afterCursor) {
         throw new UnsupportedOperationException("Instagram integration is disabled (app.instagram.enabled=false)");
     }

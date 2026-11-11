@@ -1,0 +1,16 @@
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Set-Cookie: XSRF-TOKEN=; Expires=Thu, 01 Jan 1970 00:00:10 GMT; Path=/
+Set-Cookie: XSRF-TOKEN=cde3038a-d06f-4ae8-b367-fb6ee45f3fc1; Path=/
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: application/json
+Transfer-Encoding: chunked
+Date: Wed, 11 Nov 2026 16:31:26 GMT
+

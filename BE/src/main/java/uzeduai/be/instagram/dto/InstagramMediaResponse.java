@@ -18,6 +18,7 @@ public record InstagramMediaResponse(
         String permalink,
         Instant publishedAt,
         MediaAnalysisStatus analysisStatus,
+        String analysisSummary,
         Integer likeCount,
         Integer commentsCount,
         Integer sharesCount,
