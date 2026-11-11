@@ -71,7 +71,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
 - Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, text **`qwen2.5:7b`** (instruct; RTX 4060 8GB; coder emas)
-- Scenario **1.5**: USER BRIEF = mavzu (insights faqat uslub); off-topic romance shablon rad; topic pack (masalan yo‘l qoidalari); 6–8 kadr / 15s; Video Factory — yo‘q
+- Scenario **1.5.1**: BRIEF=mavzu; pack faqat fallback va **5+ rotating variant**; har so‘rovda yangi burchak; model on-topic matni saqlanadi; Video Factory — yo‘q
 - BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
 ### Instagram (M0/M1 BE+UI)

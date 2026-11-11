@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import time
 from typing import Any
 
 _NULLISH = {
@@ -459,59 +461,121 @@ _LIFESTYLE_MARKERS = (
     "shaxsiy burchak",
 )
 
-_TOPIC_PACKS: list[tuple[tuple[str, ...], dict[str, Any]]] = [
-    (
-        ("yo'l", "yol", "harakat", "svetofor", "piyoda", "haydovchi", "belgi", "mashina", "modda", "qoida"),
-        {
-            "title": "Yo'l harakati qoidalari",
-            "goal": "Asosiy yo'l qoidalari va moddalarni sodda tushuntirish",
-            "music": "Aniqlik beruvchi ritm, oddiy fon",
-            "tags": ["#yolqoidalari", "#xavfsizlik", "#haydovchi", "#reels"],
-            "caption": (
-                "Yo'l qoidasi — hayot qoidasi. Asosiy moddalarni bilib yuring, "
-                "o'zingiz va boshqalar xavfsizligi uchun. "
-                "Qaysi qoida sizga eng muhim? Izohlarda yozing."
-            ),
-            "shots": [
-                {
-                    "visualUz": "Svetofor yaqin plan, sekin zoom-in",
-                    "overlayTextUz": "Yo'l qoidasi — hayot qoidasi",
-                    "purpose": "hook",
-                    "noteUz": "E'tiborni tortish",
-                },
-                {
-                    "visualUz": "To'xtash chizig'i va piyoda o'tish joyi",
-                    "overlayTextUz": "To'xtash chizig'ini biling",
-                    "purpose": "setup",
-                    "noteUz": "Kirish",
-                },
-                {
-                    "visualUz": "Yo'l belgisi close-up, qo'l ko'rsatadi",
-                    "overlayTextUz": "Belgiga qarab harakat qiling",
-                    "purpose": "detail",
-                    "noteUz": "Detal",
-                },
-                {
-                    "visualUz": "Haydovchi diqqat bilan yo'lga qaraydi",
-                    "overlayTextUz": "Tezlik — xavf manbai",
-                    "purpose": "emotion",
-                    "noteUz": "Ogohlantirish",
-                },
-                {
-                    "visualUz": "Asosiy qoida matni ekranda, aniq kadr",
-                    "overlayTextUz": "Asosiy moddani eslab qoling",
-                    "purpose": "payoff",
-                    "noteUz": "Asosiy fikr",
-                },
-                {
-                    "visualUz": "Kamera auditoriyaga qaraydi + CTA",
-                    "overlayTextUz": "Qaysi qoida eng muhim?",
-                    "purpose": "cta",
-                    "noteUz": "Izohga chaqirish",
-                },
-            ],
-        },
-    ),
+_TRAFFIC_KEYS = (
+    "yo'l",
+    "yol",
+    "harakat",
+    "svetofor",
+    "piyoda",
+    "haydovchi",
+    "belgi",
+    "mashina",
+    "modda",
+    "qoida",
+)
+
+# Multiple fallback variants — force/salvage never repeats the exact same copy.
+_TRAFFIC_VARIANTS: list[dict[str, Any]] = [
+    {
+        "title": "Yo'l harakati qoidalari",
+        "goal": "Asosiy yo'l qoidalari va moddalarni sodda tushuntirish",
+        "music": "Aniqlik beruvchi ritm, oddiy fon",
+        "tags": ["#yolqoidalari", "#xavfsizlik", "#haydovchi", "#reels"],
+        "caption": (
+            "Yo'l qoidasi — hayot qoidasi. Asosiy moddalarni bilib yuring, "
+            "o'zingiz va boshqalar xavfsizligi uchun. "
+            "Qaysi qoida sizga eng muhim? Izohlarda yozing."
+        ),
+        "angle": "svetofor + to'xtash chizig'i",
+        "shots": [
+            {"visualUz": "Svetofor yaqin plan, sekin zoom-in", "overlayTextUz": "Yo'l qoidasi — hayot qoidasi", "purpose": "hook", "noteUz": "E'tibor"},
+            {"visualUz": "To'xtash chizig'i va piyoda o'tish joyi", "overlayTextUz": "To'xtash chizig'ini biling", "purpose": "setup", "noteUz": "Kirish"},
+            {"visualUz": "Yo'l belgisi close-up, qo'l ko'rsatadi", "overlayTextUz": "Belgiga qarab harakat qiling", "purpose": "detail", "noteUz": "Detal"},
+            {"visualUz": "Haydovchi diqqat bilan yo'lga qaraydi", "overlayTextUz": "Tezlik — xavf manbai", "purpose": "emotion", "noteUz": "Ogohlantirish"},
+            {"visualUz": "Asosiy qoida matni ekranda", "overlayTextUz": "Asosiy moddani eslab qoling", "purpose": "payoff", "noteUz": "Xulosa"},
+            {"visualUz": "Kamera auditoriyaga + CTA", "overlayTextUz": "Qaysi qoida eng muhim?", "purpose": "cta", "noteUz": "Izoh"},
+        ],
+    },
+    {
+        "title": "3 soniyada 1 ta yo'l qoidasi",
+        "goal": "Bitta aniq qoidani tez va esda qolarli o'rgatish",
+        "music": "Qisqa urishli ritm, urg'uli",
+        "tags": ["#yolqoidalari", "#3soniya", "#xavfsizlik", "#reels"],
+        "caption": (
+            "Bugun bitta qoida: piyodaga yo'l bering. "
+            "Oddiy, lekin hayot saqlaydi. Siz qaysi qoidani ko'proq buzasiz? Yozing."
+        ),
+        "angle": "piyoda ustuvorligi",
+        "shots": [
+            {"visualUz": "Piyoda o'tish joyi, sekin pan", "overlayTextUz": "Piyoda — birinchi o'rinda", "purpose": "hook", "noteUz": "Hook"},
+            {"visualUz": "Mashina to'xtayotgan kadr", "overlayTextUz": "Chiziq oldida to'xtang", "purpose": "setup", "noteUz": "Kirish"},
+            {"visualUz": "Piyoda yo'ldan o'tayotgani", "overlayTextUz": "Ularga yo'l bering", "purpose": "detail", "noteUz": "Detal"},
+            {"visualUz": "Haydovchi bosh irg'aydi", "overlayTextUz": "Hurmat — xavfsizlik", "purpose": "emotion", "noteUz": "Hissiyot"},
+            {"visualUz": "Qoida matni ekranda", "overlayTextUz": "Bu oddiy, lekin muhim", "purpose": "payoff", "noteUz": "Xulosa"},
+            {"visualUz": "CTA matn + yuz", "overlayTextUz": "Siz buni doim qilasizmi?", "purpose": "cta", "noteUz": "Savol"},
+        ],
+    },
+    {
+        "title": "Tezlik limitti — nima uchun?",
+        "goal": "Tezlik qoidasini sabab bilan tushuntirish",
+        "music": "Keskin, ogohlantiruvchi ritm",
+        "tags": ["#tezlik", "#yolqoidalari", "#xavfsizlik", "#reels"],
+        "caption": (
+            "Tezlik limi — jarima uchun emas, hayot uchun. "
+            "Shahar ichida sekinroq boring. Izohlarda: shahringizda limit necha?"
+        ),
+        "angle": "tezlik limi sababi",
+        "shots": [
+            {"visualUz": "Spidometr yaqin plan", "overlayTextUz": "Tezlik limi bormi?", "purpose": "hook", "noteUz": "Hook"},
+            {"visualUz": "Shahar ko'chasi, mashinalar", "overlayTextUz": "Shahar ichida sekinroq", "purpose": "setup", "noteUz": "Kirish"},
+            {"visualUz": "Belgi: tezlik limiti close-up", "overlayTextUz": "Belgida yozilgan raqam", "purpose": "detail", "noteUz": "Detal"},
+            {"visualUz": "Bolalar o'tish joyi uzoqdan", "overlayTextUz": "Bir soniya kechikish — xavf", "purpose": "emotion", "noteUz": "Ogohlantirish"},
+            {"visualUz": "Haydovchi gazni kamaytiradi", "overlayTextUz": "Limit — himoya", "purpose": "payoff", "noteUz": "Xulosa"},
+            {"visualUz": "CTA ekranda", "overlayTextUz": "Shahringizda limit necha?", "purpose": "cta", "noteUz": "Izoh"},
+        ],
+    },
+    {
+        "title": "Svetofor ranglari — eslatma",
+        "goal": "Svetofor signallarini qisqa eslatish",
+        "music": "Yengil elektron ritm",
+        "tags": ["#svetofor", "#yolqoidalari", "#eslatma", "#reels"],
+        "caption": (
+            "Qizil — to'xta. Sariq — tayyorlan. Yashil — ehtiyot bilan. "
+            "Oddiy eslatma, lekin har kuni kerak. Saqlab qo'ying."
+        ),
+        "angle": "svetofor 3 rang",
+        "shots": [
+            {"visualUz": "Qizil chiroq yonadi, zoom-in", "overlayTextUz": "Qizil — to'xtang", "purpose": "hook", "noteUz": "Hook"},
+            {"visualUz": "Sariq chiroq", "overlayTextUz": "Sariq — tayyorlaning", "purpose": "setup", "noteUz": "Kirish"},
+            {"visualUz": "Yashil chiroq", "overlayTextUz": "Yashil — ehtiyot bilan", "purpose": "detail", "noteUz": "Detal"},
+            {"visualUz": "Mashina sekin harakatlanadi", "overlayTextUz": "Shoshilmang", "purpose": "emotion", "noteUz": "Eslatma"},
+            {"visualUz": "Uch rang birga grafik", "overlayTextUz": "3 rang — 3 qoida", "purpose": "payoff", "noteUz": "Xulosa"},
+            {"visualUz": "CTA", "overlayTextUz": "Do'stingizga yuboring", "purpose": "cta", "noteUz": "Share"},
+        ],
+    },
+    {
+        "title": "Chap/o'ng burilish qoidalari",
+        "goal": "Burilishda asosiy xatolarni ko'rsatish",
+        "music": "Oddiy puk-puk ritm",
+        "tags": ["#burilish", "#yolqoidalari", "#haydovchi", "#reels"],
+        "caption": (
+            "Burilishdan oldin signal, chiziq va piyodani tekshiring. "
+            "Qaysi xatoni ko'p ko'rasiz? Izohlarda yozing."
+        ),
+        "angle": "burilish + signal",
+        "shots": [
+            {"visualUz": "Signal chirog'i yonadi", "overlayTextUz": "Avval signal bering", "purpose": "hook", "noteUz": "Hook"},
+            {"visualUz": "Chorrahaga yaqinlashish", "overlayTextUz": "Chorraha oldida sekinlang", "purpose": "setup", "noteUz": "Kirish"},
+            {"visualUz": "Oyna orqali qarash (mirror)", "overlayTextUz": "Orqa va yonni tekshiring", "purpose": "detail", "noteUz": "Detal"},
+            {"visualUz": "Piyoda yo'lda", "overlayTextUz": "Piyodani o'tkazing", "purpose": "emotion", "noteUz": "Xavfsizlik"},
+            {"visualUz": "Toza burilish kadr", "overlayTextUz": "Keyin buriling", "purpose": "payoff", "noteUz": "Xulosa"},
+            {"visualUz": "CTA", "overlayTextUz": "Qaysi xato ko'p uchraydi?", "purpose": "cta", "noteUz": "Izoh"},
+        ],
+    },
+]
+
+_TOPIC_PACKS: list[tuple[tuple[str, ...], list[dict[str, Any]]]] = [
+    (_TRAFFIC_KEYS, _TRAFFIC_VARIANTS),
 ]
 
 
@@ -534,86 +598,97 @@ def extract_brief_topic(brief: str) -> str:
     return " ".join(kept[:10])
 
 
-def resolve_topic_pack(brief: str) -> dict[str, Any] | None:
+def resolve_topic_variants(brief: str) -> list[dict[str, Any]] | None:
     b = _canon_apostrophe(brief or "").lower()
     if not b:
         return None
-    for keys, pack in _TOPIC_PACKS:
+    for keys, variants in _TOPIC_PACKS:
         if any(k in b for k in keys):
-            return pack
+            return variants
     return None
 
 
-def default_montage_shots(brief: str = "") -> list[dict[str, Any]]:
-    """6-shot / 15s skeleton — topic-aware when brief is present."""
-    pack = resolve_topic_pack(brief)
-    if pack:
-        shots = []
-        for s in pack["shots"]:
-            shots.append(
-                {
-                    "startSec": 0,
-                    "endSec": 2,
-                    "visualUz": s["visualUz"],
-                    "overlayTextUz": s["overlayTextUz"],
-                    "purpose": s["purpose"],
-                    "noteUz": s["noteUz"],
-                }
-            )
-        return shots
+def pick_topic_variant(brief: str, *, salt: str | None = None) -> dict[str, Any] | None:
+    """Pick a rotating/random fallback variant so salvage is not identical every run."""
+    variants = resolve_topic_variants(brief)
+    if not variants:
+        return None
+    seed_src = f"{salt or ''}|{brief}|{time.time_ns()}"
+    rng = random.Random(seed_src)
+    return dict(rng.choice(variants))
 
+
+def resolve_topic_pack(brief: str) -> dict[str, Any] | None:
+    """Backward-compatible: one variant (random). Prefer pick_topic_variant with salt."""
+    return pick_topic_variant(brief)
+
+
+def _shots_from_variant(variant: dict[str, Any]) -> list[dict[str, Any]]:
+    shots: list[dict[str, Any]] = []
+    for s in variant.get("shots") or []:
+        shots.append(
+            {
+                "startSec": 0,
+                "endSec": 2,
+                "visualUz": s["visualUz"],
+                "overlayTextUz": s["overlayTextUz"],
+                "purpose": s["purpose"],
+                "noteUz": s.get("noteUz", s["purpose"]),
+            }
+        )
+    return shots
+
+
+def _generic_topic_shots(brief: str, *, salt: str | None = None) -> list[dict[str, Any]]:
     topic = extract_brief_topic(brief) or "Yangi mavzu"
     short = " ".join(topic.split()[:5])
-    return [
-        {
-            "startSec": 0,
-            "endSec": 2,
-            "visualUz": f"{short} — ochilish kadr, sekin zoom-in",
-            "overlayTextUz": f"{short} — diqqat!",
-            "purpose": "hook",
-            "noteUz": "E'tiborni tortish",
-        },
-        {
-            "startSec": 2,
-            "endSec": 4,
-            "visualUz": f"{short} asosiy obyekt yaqin plan",
-            "overlayTextUz": "Mavzuga qisqa kirish",
-            "purpose": "setup",
-            "noteUz": "Kirish",
-        },
-        {
-            "startSec": 4,
-            "endSec": 7,
-            "visualUz": "Muhim detal / belgi close-up",
-            "overlayTextUz": "Asosiy fikrni oching",
-            "purpose": "detail",
-            "noteUz": "Detal",
-        },
-        {
-            "startSec": 7,
-            "endSec": 10,
-            "visualUz": "Inson yoki reaksiya, aniq fon",
-            "overlayTextUz": "Nima uchun muhim?",
-            "purpose": "emotion",
-            "noteUz": "Ahamiyat",
-        },
-        {
-            "startSec": 10,
-            "endSec": 13,
-            "visualUz": "Xulosa kadr, sekin pan",
-            "overlayTextUz": "Esda qoladigan xulosa",
-            "purpose": "payoff",
-            "noteUz": "Xulosa",
-        },
-        {
-            "startSec": 13,
-            "endSec": 15,
-            "visualUz": "Kamera auditoriyaga + CTA matni",
-            "overlayTextUz": "Izohlarda fikringizni yozing",
-            "purpose": "cta",
-            "noteUz": "Chaqiruv",
-        },
+    rng = random.Random(f"{salt or ''}|generic|{brief}|{time.time_ns()}")
+    hooks = [
+        f"{short} — diqqat!",
+        f"Bugun: {short}",
+        f"{short} haqida bilasizmi?",
+        f"3 soniyada {short}",
     ]
+    setups = ["Mavzuga qisqa kirish", "Avval asosini biling", "Oddiy qilib tushuntiramiz"]
+    details = ["Asosiy fikrni oching", "Muhim detal shu yerda", "Eslab qoling"]
+    emotions = ["Nima uchun muhim?", "Bu sizga ta'sir qiladi", "Xato qimmatga tushadi"]
+    payoffs = ["Esda qoladigan xulosa", "Asosiy xulosa shu", "Shu bilan eslab qoling"]
+    ctas = [
+        "Izohlarda fikringizni yozing",
+        "Qaysi qism muhimroq?",
+        "Do'stingizga yuboring",
+        "Saqlab qo'ying",
+    ]
+    return [
+        {"startSec": 0, "endSec": 2, "visualUz": f"{short} — ochilish, sekin zoom-in", "overlayTextUz": rng.choice(hooks), "purpose": "hook", "noteUz": "E'tibor"},
+        {"startSec": 2, "endSec": 4, "visualUz": f"{short} yaqin plan", "overlayTextUz": rng.choice(setups), "purpose": "setup", "noteUz": "Kirish"},
+        {"startSec": 4, "endSec": 7, "visualUz": "Muhim detal close-up", "overlayTextUz": rng.choice(details), "purpose": "detail", "noteUz": "Detal"},
+        {"startSec": 7, "endSec": 10, "visualUz": "Inson / reaksiya", "overlayTextUz": rng.choice(emotions), "purpose": "emotion", "noteUz": "Ahamiyat"},
+        {"startSec": 10, "endSec": 13, "visualUz": "Xulosa kadr, sekin pan", "overlayTextUz": rng.choice(payoffs), "purpose": "payoff", "noteUz": "Xulosa"},
+        {"startSec": 13, "endSec": 15, "visualUz": "Kamera auditoriyaga + CTA", "overlayTextUz": rng.choice(ctas), "purpose": "cta", "noteUz": "Chaqiruv"},
+    ]
+
+
+def default_montage_shots(brief: str = "", *, salt: str | None = None) -> list[dict[str, Any]]:
+    """6-shot skeleton — topic-aware fallback with rotating variants."""
+    variant = pick_topic_variant(brief, salt=salt)
+    if variant:
+        return _shots_from_variant(variant)
+    return _generic_topic_shots(brief, salt=salt)
+
+
+def text_matches_brief_topic(text: str, brief: str) -> bool:
+    """True if text already speaks the brief topic (keep model copy instead of pack)."""
+    t = _canon_apostrophe(text or "").lower()
+    if not t.strip():
+        return False
+    if any(m in t for m in _LIFESTYLE_MARKERS):
+        return False
+    if resolve_topic_variants(brief):
+        return any(k in t for k in ("yo'l", "yol", "qoida", "svetofor", "piyoda", "haydovchi", "belgi", "modda", "tezlik", "buril", "signal", "chorraha"))
+    topic = extract_brief_topic(brief)
+    tokens = [x for x in _raw_tokens(topic) if x not in _BRIEF_NOISE and len(x) > 3][:6]
+    return bool(tokens) and sum(1 for x in tokens if x in t) >= 1
 
 
 def scenario_text_blob(result: dict[str, Any]) -> str:
@@ -681,18 +756,25 @@ def is_off_topic_for_brief(result: dict[str, Any], brief: str) -> bool:
     return False
 
 
-def force_topic_scenario(result: dict[str, Any], brief: str) -> dict[str, Any]:
-    """Rebuild copy from brief topic pack / generic topic skeleton."""
-    pack = resolve_topic_pack(brief)
+def force_topic_scenario(
+    result: dict[str, Any],
+    brief: str,
+    *,
+    salt: str | None = None,
+) -> dict[str, Any]:
+    """Rebuild from a rotating topic variant (fallback only — not every request)."""
+    salt = salt or f"force-{time.time_ns()}"
+    variant = pick_topic_variant(brief, salt=salt)
     topic = extract_brief_topic(brief) or "Yangi mavzu"
-    shots = default_montage_shots(brief)
+    shots = default_montage_shots(brief, salt=salt)
     result["shots"] = shots
-    if pack:
-        result["titleUz"] = pack["title"]
-        result["goalUz"] = pack["goal"]
-        result["musicMoodUz"] = pack["music"]
-        result["captionPrimaryUz"] = pack["caption"]
-        result["hashtagsUz"] = list(pack["tags"])
+    result["_fallbackVariant"] = (variant or {}).get("angle") or "generic"
+    if variant:
+        result["titleUz"] = variant["title"]
+        result["goalUz"] = variant["goal"]
+        result["musicMoodUz"] = variant["music"]
+        result["captionPrimaryUz"] = variant["caption"]
+        result["hashtagsUz"] = list(variant["tags"])
     else:
         short = " ".join(topic.split()[:6])
         result["titleUz"] = short
@@ -729,9 +811,11 @@ def coerce_timed_shots(
     *,
     duration_sec: int = DEFAULT_DURATION_SEC,
     brief: str = "",
+    salt: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Normalize to 6–8 timed shots across durationSec. Accepts objects or legacy strings."""
-    defaults = default_montage_shots(brief)
+    """Normalize to 6–8 timed shots. Keep on-topic model copy; pack only fills holes."""
+    salt = salt or f"coerce-{time.time_ns()}"
+    defaults = default_montage_shots(brief, salt=salt)
     raw = result.get("shots")
     out: list[dict[str, Any]] = []
 
@@ -792,30 +876,35 @@ def coerce_timed_shots(
         brief_wants_other = bool(brief.strip()) and not any(
             m in _canon_apostrophe(brief).lower() for m in ("muhabbat", "sevgi", "romant", "baxt", "qahva")
         )
-        if (
-            looks_like_gibberish_uz(visual)
-            or not visual
+        on_topic_visual = text_matches_brief_topic(visual, brief) if brief else False
+        on_topic_overlay = text_matches_brief_topic(overlay, brief) if brief else False
+
+        replace_visual = (
+            not visual
             or len(visual) < 8
             or (key in seen)
             or (len(set(v for v in visuals if len(v) >= 8)) <= 1 and i > 0)
             or (brief_wants_other and lifestyle_visual)
-        ):
+            or (looks_like_gibberish_uz(visual) and not on_topic_visual)
+        )
+        if replace_visual:
             shot["visualUz"] = defaults[min(i, len(defaults) - 1)]["visualUz"]
         else:
             shot["visualUz"] = polish_uzbek_text(visual, max_words=16)
         seen.add(str(shot["visualUz"]).lower())
 
-        if (
-            looks_like_gibberish_uz(overlay)
-            or not overlay
+        replace_overlay = (
+            not overlay
             or len(overlay.split()) < 2
             or (brief_wants_other and lifestyle_overlay)
-        ):
+            or (looks_like_gibberish_uz(overlay) and not on_topic_overlay)
+        )
+        if replace_overlay:
             shot["overlayTextUz"] = defaults[min(i, len(defaults) - 1)]["overlayTextUz"]
         else:
             shot["overlayTextUz"] = polish_uzbek_text(overlay, max_words=9)
 
-        if not note or looks_like_gibberish_uz(note):
+        if not note or (looks_like_gibberish_uz(note) and not text_matches_brief_topic(note, brief)):
             shot["noteUz"] = defaults[min(i, len(defaults) - 1)].get("noteUz", shot["purpose"])
         else:
             shot["noteUz"] = polish_uzbek_text(note, max_words=8)
@@ -976,7 +1065,8 @@ def normalize_scenario(
     result["format"] = fmt
 
     topic = extract_brief_topic(brief)
-    pack = resolve_topic_pack(brief)
+    salt = str(result.get("_variantSalt") or f"norm-{time.time_ns()}")
+    pack = pick_topic_variant(brief, salt=salt)  # fallback pool only
 
     title = polish_uzbek_text(str(result.get("titleUz") or ""), max_words=10)
     title_is_instruction = bool(title) and any(
@@ -1009,13 +1099,13 @@ def normalize_scenario(
     for key in ("hashtagsUz", "risksUz", "postingTipsUz", "captionAlternativesUz"):
         result[key] = as_str_list(result.get(key))
 
-    shots = coerce_timed_shots(result, duration_sec=duration, brief=brief)
+    shots = coerce_timed_shots(result, duration_sec=duration, brief=brief, salt=salt)
     result["shots"] = shots
 
-    # If still off-topic vs brief — hard rebuild from topic pack.
+    # Only if still lifestyle/off-topic — rebuild with a NEW rotating variant.
     if brief and is_off_topic_for_brief(result, brief):
-        result = force_topic_scenario(result, brief)
-        shots = coerce_timed_shots(result, duration_sec=duration, brief=brief)
+        result = force_topic_scenario(result, brief, salt=f"{salt}-force")
+        shots = coerce_timed_shots(result, duration_sec=duration, brief=brief, salt=f"{salt}-force2")
         result["shots"] = shots
 
     result["durationSec"] = int(shots[-1]["endSec"]) if shots else duration
@@ -1034,7 +1124,11 @@ def normalize_scenario(
         str(result.get("hookUz") or shots[0].get("overlayTextUz") or ""),
         max_words=9,
     )
-    if not hook or looks_like_gibberish_uz(hook) or any(m in hook.lower() for m in _LIFESTYLE_MARKERS):
+    if (
+        not hook
+        or any(m in hook.lower() for m in _LIFESTYLE_MARKERS)
+        or (looks_like_gibberish_uz(hook) and not text_matches_brief_topic(hook, brief))
+    ):
         hook = str(shots[0].get("overlayTextUz") or "Diqqat — muhim fikr")
     result["hookUz"] = hook
 
@@ -1045,13 +1139,14 @@ def normalize_scenario(
     )
     caption_lifestyle = sum(1 for m in _LIFESTYLE_MARKERS if m in caption_l) >= 1
     caption_has_raw_brief = bool(brief) and brief.strip().lower()[:40] in caption_l
+    caption_ok_topic = text_matches_brief_topic(caption, brief) if brief else True
     if (
         not caption
-        or looks_like_gibberish_uz(caption)
         or len(caption) < 24
         or caption_is_cta_like
         or (brief and caption_lifestyle)
         or caption_has_raw_brief
+        or (looks_like_gibberish_uz(caption) and not caption_ok_topic)
     ):
         if pack:
             result["captionPrimaryUz"] = pack["caption"]
@@ -1113,13 +1208,14 @@ def normalize_scenario(
         if len(t) > 2:
             cleaned_tags.append(t.lower())
     lifestyle_tags = {"#estetika", "#muhabbat", "#baxt", "#kunliklahzalar"}
-    if pack:
+    if cleaned_tags and not (set(cleaned_tags) & lifestyle_tags):
+        result["hashtagsUz"] = cleaned_tags
+    elif pack:
         result["hashtagsUz"] = list(pack["tags"])
-    elif not cleaned_tags or (brief and set(cleaned_tags) & lifestyle_tags and pack is None):
+    else:
         slug = "".join(ch for ch in (topic or "mavzu").lower() if ch.isalnum())[:18] or "mavzu"
         result["hashtagsUz"] = [f"#{slug}", "#reels", "#foydali"]
-    else:
-        result["hashtagsUz"] = cleaned_tags
+    result.pop("_variantSalt", None)
     return result
 
 

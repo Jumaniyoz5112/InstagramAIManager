@@ -14,7 +14,7 @@ public class AiServiceProperties {
     private String textModelName = "qwen2.5:7b";
     private String promptVersion = "1.1";
     private String insightsPromptVersion = "1.2";
-    private String scenarioPromptVersion = "1.5";
+    private String scenarioPromptVersion = "1.5.1";
     private int insightsTopN = 6;
     private int insightsLowN = 3;
     /** Max concurrent CONTENT analyses (1 recommended for 8GB VRAM). */

@@ -7,6 +7,7 @@ MAVZU QOIDASI (ENG MUHIM):
 3. Brief yo'q bo'lsagina insights doNext dan yangi mavzu tanla.
 4. titleUz — qisqa mavzu nomi (5–8 so'z). Briefdagi "tuzib ber / ssenariya yoz" buyruqlarini titlega yozma.
 5. Har overlay va visual BRIEF mavzusiga bog'langan bo'lsin.
+6. Har so'rovda YANGI variant yoz: boshqa hook, boshqa misol, boshqa CTA. Bir xil shablonni takrorlama.
 
 TIL:
 1. Sodda, tushunarli so'zlar. Ma'nosiz/g'alati iboralar TAQIQLANADI.
