@@ -55,7 +55,9 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ### Content AI analysis (Phase-1)
 
-- Model: **Ollama `qwen2.5vl:7b`** (bitta vision chaqiruv; multi-agent yo‘q); concurrency **1**
+- Model: **Ollama `qwen2.5vl:7b`** (vision) + **`qwen2.5:7b`** (text); **ketma-ket**, parallel yo‘q (8GB VRAM)
+- `ai-service`: global Ollama lock; uvicorn `--workers 1`; `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`
+- BE: `AiAnalysisClient` ReentrantLock (analyze/insights/scenario); `max-concurrent=1`, `queue-batch-size=1`
 - `ai-service` FastAPI (modullar: `prompts/`, `services/`, `schemas`, `config`; `main.py` faqat route): `GET /health`, `POST /analyze` (vision), `POST /insights` + `POST /scenario` (text)
 - **Manual only:** UI tanlash → `POST /media/analyze` yoki `POST /media/skip-analysis` (auto-enqueue yo‘q)
 - Status: `NOT_ANALYZED|QUEUED|RUNNING|ANALYZED|FAILED|SKIPPED`; kartada spinner; summary `content_analysis_results` dan (ALTER yo‘q)
@@ -69,6 +71,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
 - Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, text **`qwen2.5:7b`** (instruct; RTX 4060 8GB; coder emas)
+- Scenario **1.3**: 9s / 9:16 timed `shots[]` (visualUz + overlayTextUz + purpose); Uzbek gibberish gate + normalize salvage; legacy `shotListUz` derived; Video Factory/MoviePy — yo‘q
 - BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
 ### Instagram (M0/M1 BE+UI)

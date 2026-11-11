@@ -124,8 +124,22 @@
           @if (scenarioText('goalUz'); as goal) {
             <p class="text-sm text-white/80">{{ goal }}</p>
           }
-          @if (scenarioText('format'); as fmt) {
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-white/45">{{ fmt }}</p>
+          <div class="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+            @if (scenarioText('format'); as fmt) {
+              <span>{{ fmt }}</span>
+            }
+            @if (scenarioText('aspectRatio'); as ar) {
+              <span>· {{ ar }}</span>
+            }
+            @if (scenarioText('durationSec'); as dur) {
+              <span>· {{ 'instagram.scenario_duration' | t }}: {{ dur }}s</span>
+            }
+          </div>
+          @if (scenarioText('musicMoodUz'); as music) {
+            <div>
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_music' | t }}</p>
+              <p class="mt-1 text-sm text-white/80">{{ music }}</p>
+            </div>
           }
           @if (scenarioText('hookUz'); as hook) {
             <div class="rounded-xl border border-accent-2/25 bg-accent-2/10 p-3.5">
@@ -133,6 +147,48 @@
               <p class="mt-1 text-sm text-white/90">{{ hook }}</p>
             </div>
           }
+
+          @if (scenarioShots().length) {
+            <div class="space-y-2">
+              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_shots' | t }}</p>
+              <div class="overflow-x-auto rounded-xl border border-white/10">
+                <table class="min-w-full text-left text-sm text-white/80">
+                  <thead class="bg-ink-soft/60 text-[10px] uppercase tracking-wide text-white/40">
+                    <tr>
+                      <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_time' | t }}</th>
+                      <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_visual' | t }}</th>
+                      <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_overlay' | t }}</th>
+                      <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_purpose' | t }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (s of scenarioShots(); track s.startSec + '-' + s.purpose) {
+                      <tr class="border-t border-white/8 align-top">
+                        <td class="whitespace-nowrap px-3 py-2.5 font-medium text-accent-2/90">
+                          {{ s.startSec }}–{{ s.endSec }}s
+                        </td>
+                        <td class="px-3 py-2.5">{{ s.visualUz }}</td>
+                        <td class="px-3 py-2.5 text-white/90">{{ s.overlayTextUz }}</td>
+                        <td class="px-3 py-2.5 uppercase tracking-wide text-white/45">{{ s.purpose }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          } @else if (scenarioList('shotListUz'); as legacyShots) {
+            @if (legacyShots.length) {
+              <div>
+                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_shots' | t }}</p>
+                <ul class="mt-1 list-disc space-y-1.5 pl-4 text-sm text-white/75">
+                  @for (s of legacyShots; track s) {
+                    <li>{{ s }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+
           @if (scenarioText('captionPrimaryUz'); as cap) {
             <div>
               <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_caption' | t }}</p>
@@ -145,53 +201,11 @@
               <p class="mt-1 text-sm font-medium text-white/90">{{ cta }}</p>
             </div>
           }
-          @if (scenarioList('captionAlternativesUz'); as alts) {
-            @if (alts.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_captions_alt' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1.5 pl-4 text-sm text-white/75">
-                  @for (a of alts; track a) {
-                    <li class="whitespace-pre-wrap">{{ a }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
-          @if (scenarioText('visualDirectionUz'); as visual) {
-            <div>
-              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_visual' | t }}</p>
-              <p class="mt-1 text-sm text-white/80">{{ visual }}</p>
-            </div>
-          }
-          @if (scenarioList('shotListUz'); as shots) {
-            @if (shots.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_shots' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1.5 pl-4 text-sm text-white/75">
-                  @for (s of shots; track s) {
-                    <li>{{ s }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
           @if (scenarioText('whyThisWorksUz'); as why) {
             <div>
               <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_why' | t }}</p>
               <p class="mt-1 text-sm text-white/55">{{ why }}</p>
             </div>
-          }
-          @if (scenarioList('risksUz'); as risks) {
-            @if (risks.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.scenario_risks' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/70">
-                  @for (r of risks; track r) {
-                    <li>{{ r }}</li>
-                  }
-                </ul>
-              </div>
-            }
           }
           @if (scenarioList('postingTipsUz'); as tips) {
             @if (tips.length) {

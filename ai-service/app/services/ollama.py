@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import re
+import threading
 from typing import Any
 
 import httpx
@@ -12,6 +13,14 @@ from fastapi import HTTPException
 from app.config import MAX_IMAGE_BYTES, OLLAMA_BASE_URL
 
 log = logging.getLogger("ai-service.ollama")
+
+# RTX 4060 8GB: vision + text never concurrent — one Ollama call at a time.
+_OLLAMA_LOCK = threading.Lock()
+_busy_model: str | None = None
+
+
+def ollama_busy() -> dict[str, Any]:
+    return {"busy": _OLLAMA_LOCK.locked(), "model": _busy_model}
 
 
 def ollama_reachable(timeout: float = 3.0) -> bool:
@@ -32,6 +41,7 @@ def ollama_chat(
     temperature: float,
     repeat_penalty: float | None = None,
 ) -> dict[str, Any]:
+    global _busy_model
     user_msg: dict[str, Any] = {"role": "user", "content": user_text}
     if images:
         user_msg["images"] = images
@@ -48,14 +58,20 @@ def ollama_chat(
         ],
         "options": options,
     }
-    try:
-        with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
-            r = client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
-            r.raise_for_status()
-            data = r.json()
-    except httpx.HTTPError as e:
-        log.exception("Ollama chat failed model=%s", model)
-        raise HTTPException(status_code=502, detail=f"Ollama error: {e}") from e
+    with _OLLAMA_LOCK:
+        _busy_model = model
+        log.info("Ollama sequential start model=%s", model)
+        try:
+            with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+                r = client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+                r.raise_for_status()
+                data = r.json()
+        except httpx.HTTPError as e:
+            log.exception("Ollama chat failed model=%s", model)
+            raise HTTPException(status_code=502, detail=f"Ollama error: {e}") from e
+        finally:
+            _busy_model = None
+            log.info("Ollama sequential end model=%s", model)
 
     content = ""
     message = data.get("message") or {}

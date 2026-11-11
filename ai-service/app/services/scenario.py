@@ -10,7 +10,13 @@ from app.config import OLLAMA_TEXT_MODEL, SCENARIO_PROMPT_VERSION
 from app.prompts import SCENARIO_SYSTEM
 from app.schemas import ScenarioRequest
 from app.services.ollama import ollama_chat
-from app.services.quality import is_valid_insights, is_valid_scenario, normalize_scenario
+from app.services.quality import (
+    is_minimal_scenario,
+    is_valid_insights,
+    is_valid_scenario,
+    normalize_scenario,
+    scenario_quality_issues,
+)
 
 log = logging.getLogger("ai-service.scenario")
 
@@ -23,53 +29,67 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
 
     brief = (req.brief or "").strip()
     brief_line = (
-        f"USER BRIEF (ASOSIY MAQSAD — shu mavzuda yangi ssenariya): {brief}"
+        f"USER BRIEF (ASOSIY MAQSAD — shu mavzuda 9s montaj): {brief}"
         if brief
         else "USER BRIEF: yo‘q — insights doNext dan yangi mavzu tanlang."
     )
     user_text = (
-        "Professional SMM post rejasini yozing.\n"
-        "Maydonlar orasida bir xil gap/so'z birikmasini TAKRORLAMANG.\n"
-        "Insightsdan faqat USLUB/PATTERN; yangi matn va kadrlar yarating.\n"
+        "9 soniyalik Reels/Story montaj ssenariyasini yozing (schema 1.3).\n"
+        "shots: aniq 3 kadr (0-3 hook, 3-6 body, 6-9 cta).\n"
+        "Faqat sodda o‘zbek lotin. Ma’nosiz/g‘alati iboralar YO‘Q.\n"
+        "overlayTextUz maksimal 10 so‘z. visualUz — kamera/obyekt.\n"
+        "Insightsdan faqat USLUB/PATTERN.\n"
         f"{brief_line}\n"
-        "winningPatterns/doNext — uslub; avoidNext — qochish.\n\n"
-        f"Preferred format: {req.preferredFormat or 'auto'}\n\n"
+        f"Preferred format: {req.preferredFormat or 'REELS'}\n\n"
         f"Insights JSON:\n{json.dumps(req.insights, ensure_ascii=False)}\n\n"
-        "Faqat scenario schema JSON."
+        "Faqat scenario schema 1.3 JSON."
     )
     result = ollama_chat(
         model=OLLAMA_TEXT_MODEL,
         system=SCENARIO_SYSTEM,
         user_text=user_text,
         images=None,
-        temperature=0.65,
-        repeat_penalty=1.2,
+        temperature=0.55,
+        repeat_penalty=1.25,
     )
-    if not is_valid_scenario(result):
-        log.warning("Scenario schema/quality invalid; retrying. keys=%s", list(result.keys()))
+    result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
+    issues = scenario_quality_issues(result)
+    if issues:
+        log.warning("Scenario quality issues after normalize: %s; retrying", issues)
         result = ollama_chat(
             model=OLLAMA_TEXT_MODEL,
             system=SCENARIO_SYSTEM,
             user_text=(
-                "Oldingi javob yaroqsiz (takrorlash yoki bo'sh maydon).\n"
-                "Qoida: hook ≠ caption ≠ cta ≠ kadrlar. Har biri boshqa matn.\n"
-                "ctaUz faqat buyruq. shotListUz da kamera/obyekt yozing.\n"
-                "MAJBURIY: titleUz, goalUz, format, hookUz, captionPrimaryUz, "
-                "captionAlternativesUz (2), ctaUz, shotListUz (3), whyThisWorksUz.\n\n"
+                "Oldingi javob yaroqsiz. Qayta yozing — SODDA o‘zbek, 9s / 3 shot.\n"
+                "Har shot: startSec,endSec,visualUz,overlayTextUz,purpose.\n"
+                "Gallyutsinatsiya iboralar taqiqlanadi. Overlay qisqa.\n"
+                f"Muammolar: {', '.join(issues)}\n\n"
                 f"{brief_line}\n"
                 f"Insights:\n{json.dumps(req.insights, ensure_ascii=False)}"
             ),
             images=None,
-            temperature=0.55,
-            repeat_penalty=1.25,
+            temperature=0.4,
+            repeat_penalty=1.3,
         )
-    if not is_valid_scenario(result):
-        raise HTTPException(status_code=502, detail="Model did not return valid scenario schema")
-    result.setdefault("schemaVersion", "1.2")
-    result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
+        result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
 
+    if is_valid_scenario(result):
+        pass
+    elif is_minimal_scenario(result):
+        log.warning(
+            "Scenario accepted with salvage normalize; remaining issues=%s",
+            scenario_quality_issues(result),
+        )
+        result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
+    else:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Model did not return valid scenario schema: {scenario_quality_issues(result)}",
+        )
+
+    result["schemaVersion"] = "1.3"
     return {
-        "schemaVersion": str(result.get("schemaVersion", "1.2")),
+        "schemaVersion": "1.3",
         "model": OLLAMA_TEXT_MODEL,
         "promptVersion": SCENARIO_PROMPT_VERSION,
         "result": result,

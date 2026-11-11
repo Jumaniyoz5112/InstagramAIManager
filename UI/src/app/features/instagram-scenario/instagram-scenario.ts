@@ -122,6 +122,33 @@ export class InstagramScenarioPage implements OnInit {
     return value.map(String).map((s) => s.trim()).filter(Boolean);
   }
 
+  protected scenarioShots(): Array<{
+    startSec: number;
+    endSec: number;
+    visualUz: string;
+    overlayTextUz: string;
+    purpose: string;
+  }> {
+    const raw = this.scenario()?.result?.['shots'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+      .map((item, index) => {
+        const start = Number(item['startSec'] ?? index * 3);
+        const end = Number(item['endSec'] ?? start + 3);
+        return {
+          startSec: Number.isFinite(start) ? start : index * 3,
+          endSec: Number.isFinite(end) ? end : index * 3 + 3,
+          visualUz: String(item['visualUz'] ?? '').trim(),
+          overlayTextUz: String(item['overlayTextUz'] ?? '').trim(),
+          purpose: String(item['purpose'] ?? '').trim() || 'body'
+        };
+      })
+      .filter((s) => s.visualUz || s.overlayTextUz);
+  }
+
   protected insightText(key: string): string | null {
     const value = this.insightReport()?.result?.[key];
     if (value == null || value === '') {

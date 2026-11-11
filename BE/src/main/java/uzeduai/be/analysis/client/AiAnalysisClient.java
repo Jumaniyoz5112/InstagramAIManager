@@ -14,11 +14,15 @@ import uzeduai.be.analysis.config.AiServiceProperties;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 public class AiAnalysisClient {
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisClient.class);
+
+    /** One outbound AI call at a time (vision/text never overlap on 8GB VRAM). */
+    private final ReentrantLock sequentialLock = new ReentrantLock(true);
 
     private final AiServiceProperties properties;
     private final ObjectMapper objectMapper;
@@ -63,60 +67,80 @@ public class AiAnalysisClient {
 
     @SuppressWarnings("unchecked")
     public AnalyzeResponse analyze(AnalyzeRequest request) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("mediaId", request.mediaId() != null ? request.mediaId() : "");
-        payload.put("mediaType", request.mediaType() != null ? request.mediaType() : "IMAGE");
-        payload.put("caption", request.caption() != null ? request.caption() : "");
-        payload.put("imageUrls", request.imageUrls() != null ? request.imageUrls() : List.of());
+        sequentialLock.lock();
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("mediaId", request.mediaId() != null ? request.mediaId() : "");
+            payload.put("mediaType", request.mediaType() != null ? request.mediaType() : "IMAGE");
+            payload.put("caption", request.caption() != null ? request.caption() : "");
+            payload.put("imageUrls", request.imageUrls() != null ? request.imageUrls() : List.of());
 
-        byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
-
-        Map<String, Object> body = restClient.post()
-                .uri("/analyze")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(jsonBytes)
-                .retrieve()
-                .body(Map.class);
-        if (body == null) {
-            throw new IllegalStateException("AI service returned empty body");
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
+            log.info("AI sequential analyze start");
+            Map<String, Object> body = restClient.post()
+                    .uri("/analyze")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(jsonBytes)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null) {
+                throw new IllegalStateException("AI service returned empty body");
+            }
+            String schemaVersion = String.valueOf(body.getOrDefault("schemaVersion", "1.0"));
+            Object resultObj = body.get("result");
+            Map<String, Object> result = resultObj instanceof Map<?, ?> map
+                    ? (Map<String, Object>) map
+                    : body;
+            String model = body.get("model") != null ? String.valueOf(body.get("model")) : properties.getModelName();
+            return new AnalyzeResponse(schemaVersion, model, result);
+        } finally {
+            log.info("AI sequential analyze end");
+            sequentialLock.unlock();
         }
-        String schemaVersion = String.valueOf(body.getOrDefault("schemaVersion", "1.0"));
-        Object resultObj = body.get("result");
-        Map<String, Object> result = resultObj instanceof Map<?, ?> map
-                ? (Map<String, Object>) map
-                : body;
-        String model = body.get("model") != null ? String.valueOf(body.get("model")) : properties.getModelName();
-        return new AnalyzeResponse(schemaVersion, model, result);
     }
 
     @SuppressWarnings("unchecked")
     public AnalyzeResponse insights(Map<String, Object> payload) {
-        byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
-        Map<String, Object> body = restClient.post()
-                .uri("/insights")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(jsonBytes)
-                .retrieve()
-                .body(Map.class);
-        if (body == null) {
-            throw new IllegalStateException("AI insights returned empty body");
+        sequentialLock.lock();
+        try {
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
+            log.info("AI sequential insights start");
+            Map<String, Object> body = restClient.post()
+                    .uri("/insights")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(jsonBytes)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null) {
+                throw new IllegalStateException("AI insights returned empty body");
+            }
+            return mapAiResponse(body, properties.getTextModelName());
+        } finally {
+            log.info("AI sequential insights end");
+            sequentialLock.unlock();
         }
-        return mapAiResponse(body, properties.getTextModelName());
     }
 
     @SuppressWarnings("unchecked")
     public AnalyzeResponse scenario(Map<String, Object> payload) {
-        byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
-        Map<String, Object> body = restClient.post()
-                .uri("/scenario")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(jsonBytes)
-                .retrieve()
-                .body(Map.class);
-        if (body == null) {
-            throw new IllegalStateException("AI scenario returned empty body");
+        sequentialLock.lock();
+        try {
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
+            log.info("AI sequential scenario start");
+            Map<String, Object> body = restClient.post()
+                    .uri("/scenario")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(jsonBytes)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null) {
+                throw new IllegalStateException("AI scenario returned empty body");
+            }
+            return mapAiResponse(body, properties.getTextModelName());
+        } finally {
+            log.info("AI sequential scenario end");
+            sequentialLock.unlock();
         }
-        return mapAiResponse(body, properties.getTextModelName());
     }
 
     @SuppressWarnings("unchecked")

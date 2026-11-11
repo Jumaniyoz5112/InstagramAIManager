@@ -9,7 +9,7 @@ from app.config import OLLAMA_TEXT_MODEL, OLLAMA_VISION_MODEL
 from app.schemas import AnalyzeRequest, InsightsRequest, ScenarioRequest
 from app.services.analyze import run_analyze
 from app.services.insights import run_insights
-from app.services.ollama import ollama_reachable
+from app.services.ollama import ollama_busy, ollama_reachable
 from app.services.scenario import run_scenario
 
 logging.basicConfig(level=logging.INFO)
@@ -28,10 +28,14 @@ app.add_middleware(
 @app.get("/health")
 def health():
     ollama_ok = ollama_reachable()
+    busy = ollama_busy()
     return {
         "status": "UP" if ollama_ok else "DEGRADED",
         "service": "ai-service",
         "ollama": ollama_ok,
+        "sequential": True,
+        "busy": busy.get("busy"),
+        "busyModel": busy.get("model"),
         "visionModel": OLLAMA_VISION_MODEL,
         "textModel": OLLAMA_TEXT_MODEL,
         "model": OLLAMA_VISION_MODEL,

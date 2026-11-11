@@ -471,7 +471,15 @@ public class ContentInsightsService {
         if (!(title instanceof String t) || t.isBlank()) {
             return false;
         }
-        return caption instanceof String c && c.trim().length() >= 10;
+        if (!(caption instanceof String c) || c.trim().length() < 10) {
+            return false;
+        }
+        Object shots = result.get("shots");
+        if (shots instanceof List<?> list && list.size() >= 2) {
+            return true;
+        }
+        Object legacy = result.get("shotListUz");
+        return legacy instanceof List<?> legacyList && legacyList.size() >= 2;
     }
 
     private static int nz(Integer v) {

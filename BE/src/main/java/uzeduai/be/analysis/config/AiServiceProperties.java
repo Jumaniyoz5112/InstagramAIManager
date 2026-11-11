@@ -14,12 +14,12 @@ public class AiServiceProperties {
     private String textModelName = "qwen2.5:7b";
     private String promptVersion = "1.1";
     private String insightsPromptVersion = "1.2";
-    private String scenarioPromptVersion = "1.2";
+    private String scenarioPromptVersion = "1.3";
     private int insightsTopN = 6;
     private int insightsLowN = 3;
     /** Max concurrent CONTENT analyses (1 recommended for 8GB VRAM). */
     private int maxConcurrent = 1;
-    private int queueBatchSize = 5;
+    private int queueBatchSize = 1;
     /** Morning/evening engagement capture (Asia/Tashkent). */
     private String engagementCron = "0 0 8,20 * * *";
     private String engagementZone = "Asia/Tashkent";
