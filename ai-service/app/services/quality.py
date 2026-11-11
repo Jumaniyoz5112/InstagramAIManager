@@ -99,40 +99,138 @@ def is_valid_insights(result: dict[str, Any] | None) -> bool:
     return isinstance(wins, list) and len(wins) >= 1
 
 
-# Everyday Uzbek + allowed SMM loanwords (latin). Used to catch hallucinated mashups.
+# Everyday Uzbek + SMM / ta'lim / biznes loanwords (latin). Gibberish filtr uchun.
 _UZ_LEXICON = {
-    "baxt", "katta", "narsa", "narsalarda", "emas", "mayda", "samimiy", "lahza", "lahzalar",
-    "lahzalarda", "yashiringan", "siz", "uchun", "bugun", "eng", "yoqimli", "qaysi", "boldi",
-    "bo'ldi", "boldi", "izoh", "izohlarda", "yozing", "fikringizni", "javob", "savol",
-    "qahva", "gul", "yorug", "yoruglik", "iliq", "sekin", "zoom", "close", "plan", "yaqin",
-    "umumiy", "tabassum", "qahramon", "rang", "pastel", "pushti", "estetik", "ko'rinish",
-    "korinish", "matn", "ekranda", "chiqadi", "asosiy", "fikr", "hook", "cta", "reel",
-    "reels", "story", "instagram", "video", "kadr", "montaj", "musiqa", "romantik", "akustik",
-    "lofi", "mehr", "go'zallik", "gozallik", "oddiy", "daqiqa", "daqiqalarda", "unutmang",
-    "ulashish", "ozingizga", "o'zingizga", "haqiqiy", "iliqlik", "yonimizdagi", "doim",
-    "mahsulot", "sahna", "obyekt", "kamera", "harakat", "fon", "nur", "kayfiyat", "auditoriy",
-    "auditoriya", "post", "caption", "hashtag", "qisqa", "aniq", "yangi", "keyingi", "soniya",
-    "sekund", "birinchi", "ikkinchi", "uchinchi", "oxirida", "boshida", "diqqat", "e'tibor",
-    "etibor", "tortish", "chaqiruv", "like", "save", "share", "comment", "yuz", "kulgu",
-    "tabiiy", "sodda", "tushunarli", "chiroyli", "yorqin", "qorongu", "yumshoq", "sevgili",
-    "do'st", "dost", "oila", "ona", "ota", "bola", "uy", "oshxona", "stol", "deraza", "shahar",
-    "tabiat", "daraxt", "osmon", "quyosh", "kechqurun", "ertalab", "tushlik", "kechki",
-    "ovqat", "shirinlik", "kitob", "telefon", "kompyuter", "ish", "ofis", "maktab", "universitet",
-    "sport", "yugurish", "mashq", "soglik", "sog'liq", "energiya", "dam", "olish", "sayohat",
-    "joy", "joylar", "burchak", "xona", "devor", "gilam", "chiroq", "sham", "guldon",
-    "sovga", "sovg'a", "paket", "quti", "ochish", "ko'rsatish", "kursatish", "tanishtirish",
-    "foyda", "narx", "chegirma", "aksya", "aksiya", "sotib", "oling", "boshlash", "tugatish",
-    "va", "yoki", "lekin", "chunki", "agar", "bilan", "uchun", "kabi", "ham", "juda", "ancha",
-    "biroz", "yana", "endi", "hozir", "keyin", "avval", "keyinroq", "shu", "u", "bu", "o‘sha",
-    "osha", "men", "biz", "ular", "uning", "bizning", "sizning", "qilish", "qiling", "qiladi",
-    "bo'ladi", "boladi", "bor", "yo'q", "yoq", "kerak", "mumkin", "shart", "yaxshi", "yomon",
-    "zor", "ajoyib", "a'lo", "alo", "sevgi", "muhabbat", "do'stlik", "dostlik", "baxtli",
-    "xursand", "xafa", "tinich", "tinch", "osoyishta", "issiq", "sovuq", "yashil", "oq",
-    "qora", "qizil", "ko'k", "kok", "sariq", "kulrang", "hashtaglar", "teg", "tag",
-    "in", "out", "up", "story", "stories", "carousel", "image", "feed",
-    "minnatdormiz", "tinchlik", "ulashing", "detal", "pan", "reaksiya", "piyola",
-    "lahza", "lahzada", "qadrli", "joriy", "montaj", "ssenariya", "overlay",
-    "setup", "detail", "emotion", "payoff", "transition", "note", "purpose",
+    # --- asosiy / bog'lovchi ---
+    "va", "yoki", "lekin", "ammo", "chunki", "agar", "bilan", "uchun", "kabi", "ham", "juda",
+    "ancha", "biroz", "yana", "endi", "hozir", "keyin", "avval", "keyinroq", "shu", "u", "bu",
+    "o'sha", "osha", "men", "biz", "ular", "uning", "bizning", "sizning", "mening", "sen",
+    "siz", "kim", "nima", "qayerda", "qachon", "qanday", "qaysi", "necha", "nega", "chunki",
+    "bor", "yo'q", "yoq", "kerak", "mumkin", "shart", "lozim", "zarur", "muhim", "foydali",
+    "emas", "edi", "ekan", "ekanligi", "bo'lsa", "bolsa", "bo'lib", "bolib",
+    # --- fe'llar / harakat ---
+    "qilish", "qiling", "qiladi", "qilmoq", "qilib", "qilaylik", "qilamiz", "bo'ladi", "boladi",
+    "bo'lish", "bolish", "olish", "oling", "berish", "bering", "ko'rish", "korish", "ko'ring",
+    "eshitish", "aytish", "ayting", "yozish", "yozing", "o'qish", "oqish", "o'qing", "bilish",
+    "bilib", "biling", "eslab", "eslang", "unutmang", "unutish", "boshlash", "tugatish",
+    "ochish", "yopish", "kirish", "chiqish", "chiqadi", "kelish", "ketish", "turish", "o'tirish",
+    "yugurish", "yurish", "yuring", "to'xtash", "toxtash", "kutish", "qidirish", "topish",
+    "tanlash", "tanlang", "ulashish", "ulashing", "saqlash", "saqlang", "yuborish", "yuboring",
+    "tushuntirish", "tushuntiramiz", "tushuning", "o'rganish", "organish", "o'rgating",
+    "ko'rsatish", "kursatish", "ko'rsating", "tanishtirish", "taklif", "taklifqiling",
+    "sotib", "sotish", "buyurtma", "to'lash", "tolash", "tekshirish", "tekshiring",
+    "o'ylash", "oylash", "hisoblash", "solishtirish", "tayyorlash", "tayyor", "ishga",
+    # --- sifat / holat ---
+    "yaxshi", "yomon", "zor", "ajoyib", "a'lo", "alo", "zo'r", "mukammal", "toza", "sodda",
+    "tushunarli", "aniq", "qisqa", "uzun", "katta", "kichik", "mayda", "yuqori", "past",
+    "tez", "sekin", "sekinroq", "tezroq", "kuchli", "zaif", "yumshoq", "qattiq", "yorqin",
+    "qorong'u", "qorongu", "iliq", "issiq", "sovuq", "salqin", "tabiiy", "samimiy", "haqiqiy",
+    "yangi", "eski", "keyingi", "oldingi", "joriy", "maxsus", "oddiy", "murakkab", "qulay",
+    "qiyin", "oson", "xavfsiz", "xavfli", "foydali", "zararli", "chiroyli", "estetik",
+    "romantika", "romantik", "baxtli", "xursand", "xafa", "tinch", "tinich", "osoyishta",
+    "erkin", "band", "bo'sh", "bosh", "to'liq", "toliq", "yarim", "butun", "yagona",
+    "birinchi", "ikkinchi", "uchinchi", "to'rtinchi", "beshinchi", "oxirgi", "oxirida",
+    "boshida", "o'rtada", "ortada", "yuqorida", "pastda", "yonida", "ichida", "tashqarida",
+    # --- odam / munosabat ---
+    "odam", "inson", "bola", "qiz", "o'g'il", "ogil", "ona", "ota", "aka", "opa", "uka",
+    "singil", "do'st", "dost", "do'stlik", "dostlik", "sevgili", "oila", "oilaviy",
+    "jamoa", "guruh", "auditoriy", "auditoriya", "mijoz", "foydalanuvchi", "obuna", "obunachi",
+    "hamkor", "ustoz", "o'qituvchi", "oqituvchi", "talaba", "o'quvchi", "oquvchi", "mutaxassis",
+    "haydovchi", "piyoda", "mehmon", "xo'jayin", "xodim", "rahbar", "asoschi",
+    # --- his-tuyg'u / qiymat ---
+    "baxt", "baxtli", "sevgi", "muhabbat", "mehr", "minnatdormiz", "rahmat", "iltimos",
+    "uzr", "kechirasiz", "ishonch", "umid", "orzu", "maqsad", "natija", "muvaffaqiyat",
+    "muammo", "yechim", "sabab", "oqibat", "tajriba", "maslahat", "qoida", "qoidalari",
+    "qadrli", "qadr", "hurmat", "e'tibor", "etibor", "diqqat", "e'tiborni", "tortish",
+    "chaqiruv", "taklifnoma", "ilhom", "motivatsiya", "energiya", "kayfiyat", "hissiyot",
+    "tinchlik", "xotirjamlik", "hayot", "lahza", "lahzalar", "lahzada", "lahzalarda",
+    "daqiqa", "daqiqalar", "daqiqalarda", "soniya", "sekund", "soat", "kun", "hafta",
+    "oy", "yil", "ertalab", "tushlik", "kechki", "kechqurun", "tun", "bugun", "kecha",
+    "ertaga", "doim", "hech", "har", "ba'zan", "bazan", "ko'pincha", "kopincha",
+    # --- joy / narsa ---
+    "joy", "joylar", "joylash", "burchak", "xona", "uy", "kvartira", "ofis", "maktab",
+    "universitet", "dokon", "do'kon", "bozor", "restoran", "kafe", "oshxona", "zal",
+    "zalda", "sahna", "fon", "devor", "gilam", "stol", "stul", "deraza", "eshik",
+    "shahar", "qishloq", "ko'cha", "kocha", "park", "tabiat", "daraxt", "gul", "guldon",
+    "osmon", "quyosh", "bulut", "yomg'ir", "yomgir", "qor", "sham", "chiroq", "yorug",
+    "yorug'lik", "yoruglik", "nur", "soya", "rang", "pastel", "pushti", "yashil", "oq",
+    "qora", "qizil", "ko'k", "kok", "sariq", "kulrang", "jigarrang", "binafsha",
+    "narsa", "narsalar", "narsalarda", "obyekt", "mahsulot", "tovar", "brend", "logo",
+    "quti", "paket", "sovga", "sovg'a", "kitob", "daftar", "qalam", "telefon", "kompyuter",
+    "noutbuk", "planshet", "ekran", "ekranda", "matn", "rasm", "foto", "surat", "video",
+    "audio", "musiqa", "qoshiq", "ashula", "ovoz", "ovozli", "mikrofon", "kamera",
+    # --- ovqat / kundalik ---
+    "ovqat", "non", "gosht", "go'sht", "sabzavot", "meva", "sut", "choy", "qahva",
+    "piyola", "stakan", "suv", "shirinlik", "tort", "salat", "sho'rva", "shorva",
+    "kechki", "nonushta", "tushlik", "pishiriq", "taom", "mazali", "yangilik",
+    # --- sport / sog'liq ---
+    "sport", "mashq", "yugurish", "yurish", "fitnes", "zal", "sog'liq", "soglik",
+    "sog'lom", "soglom", "dori", "shifokor", "klinika", "dam", "damolish", "uyqu",
+    "charchoq", "kuch", "vazn", "bo'y", "boy", "nafas", "yurak", "tanasi", "tana",
+    # --- biznes / savdo ---
+    "biznes", "ish", "loyiha", "reja", "strategiya", "marketing", "sotuv", "sotish",
+    "narx", "chegirma", "aksiya", "aksya", "foiz", "pul", "byudjet", "daromad", "foyda",
+    "zarar", "mijozlar", "xizmat", "servis", "sifat", "kafolat", "yetkazib", "yetkazish",
+    "buyurtma", "to'lov", "tolov", "karta", "naqd", "online", "onlayn", "offline",
+    "startap", "investitsiya", "reklama", "kontent", "kontentlar", "post", "postlar",
+    "stories", "story", "reels", "reel", "carousel", "karusel", "feed", "image", "caption",
+    "hashtag", "hashtaglar", "teg", "tag", "blog", "bloger", "influencer", "trend",
+    "viral", "algoritm", "reach", "engagement", "view", "views", "like", "likes",
+    "comment", "comments", "share", "save", "follow", "unfollow", "dm", "inbox",
+    # --- ta'lim / izoh ---
+    "dars", "mavzu", "mavzuda", "saboq", "bilim", "malaka", "ko'nikma", "konikma",
+    "misol", "misollar", "qadam", "qadamlar", "bosqich", "bosqichlar", "ro'yxat", "royxat",
+    "jadval", "grafik", "diagramma", "statistika", "raqam", "foizda", "o'rtacha", "ortacha",
+    "eng", "kam", "ko'p", "kop", "yetarli", "kamida", "ko'pi", "kopi", "bilan",
+    "savol", "javob", "izoh", "izohlarda", "fikr", "fikringizni", "fikringiz", "takliflar",
+    "xulosa", "kirish", "asosiy", "qo'shimcha", "qoshimcha", "muhimligi", "ahamiyat",
+    "sababi", "natijasi", "yutuq", "xato", "to'g'ri", "togri", "noto'g'ri", "notogri",
+    # --- SMM / montaj ---
+    "instagram", "facebook", "telegram", "youtube", "tiktok", "hook", "cta", "kadr",
+    "kadrlar", "montaj", "ssenariya", "senariya", "scenario", "overlay", "setup", "detail",
+    "emotion", "payoff", "transition", "note", "purpose", "visual", "vizual", "uslub",
+    "stil", "kompozitsiya", "plan", "yaqin", "umumiy", "close", "closeup", "zoom",
+    "pan", "tilt", "reaksiya", "tabassum", "kulgu", "yuz", "qo'l", "qol", "qahramon",
+    "sahna", "svet", "yoritish", "akustik", "lofi", "beat", "ritm",
+    "temp", "davomiylik", "format", "vertikal", "gorizontal", "square", "thumbnail",
+    "cover", "intro", "outro", "cut", "transition", "effect", "filter", "filtr",
+    "in", "out", "up", "down", "left", "right", "center", "markaz",
+    # --- yo'l / xavfsizlik ---
+    "yo'l", "yol", "yo'llar", "yollar", "harakat", "harakatlanish", "svetofor", "belgi",
+    "belgiga", "belgilar", "mashina", "avtomobil", "mototsikl", "velosiped", "avtobus",
+    "taksi", "piyoda", "otish", "o'tish", "chiziq", "chizig'i", "chizigini", "chizigi",
+    "to'xtash", "toxtash", "tezlik", "sekinlash", "gaz", "tormoz", "rul", "faro",
+    "xavf", "xavfsizlik", "manbai", "modda", "moddani", "moddalar", "qonun", "jarima",
+    "qoidabuzarlik", "avariya", "baxtsiz", "hodisa", "sug'urta", "sugurta", "hujjat",
+    "guvohnoma", "passport", "haydovchilik", "litsenziya", "yo'nalish", "yonalish",
+    "chap", "o'ng", "ong", "oldinga", "orqaga", "aylanma", "chorraha", "ko'prik",
+    "koprik", "tonnel", "parking", "avtoturargoh", "benzin", "zapravka",
+    # --- go'zallik / lifestyle (lekin shablon emas — so'zlar) ---
+    "go'zallik", "gozallik", "iliqlik", "yashiringan", "yonimizdagi", "o'zingizga",
+    "ozingizga", "o'zingiz", "ozingiz", "bizga", "sizga", "ularga", "mayda", "katta",
+    "yoqimli", "yoqtirish", "yoqadi", "yoqdi", "boldi", "bo'ldi", "boldi", "bo'ldi",
+    "chiqadi", "ko'rinish", "korinish", "ko'rinadi", "korinadi", "tuyuladi", "his",
+    "hisoblang", "hisoblaymiz", "esda", "qoling", "qoldiring", "saqlang", "ulashing",
+    "yozing", "bosing", "o'ting", "oting", "qarang", "tinglang", "sinab", "ko'ring",
+    # --- qo'shimcha fe'l shakllari ---
+    "aytamiz", "deymiz", "deyman", "dedim", "aytdi", "bo'ldi", "boldi", "ketdi", "keldi",
+    "qoldi", "turibdi", "yotibdi", "ishlayapti", "o'qiyapti", "yozmoqda", "kutyapti",
+    "boshladik", "tugatdik", "topdik", "bildik", "tushundik", "o'rgandik", "ko'rdik",
+    "eshitdik", "qildik", "berdik", "oldik", "yubordik", "saqladik", "ulashdik",
+    # --- sonlar / miqdor (so'z) ---
+    "bir", "ikki", "uch", "to'rt", "tort", "besh", "olti", "yetti", "sakkiz", "to'qqiz",
+    "toqqiz", "o'n", "on", "yigirma", "o'ttiz", "ottiz", "qirq", "ellik", "oltmish",
+    "yetmish", "sakson", "to'qson", "toqson", "yuz", "ming", "million", "yarim",
+    "foiz", "gramm", "kilogram", "litr", "metr", "kilometr", "sm", "mm",
+    # --- boshqa foydali ---
+    "nima", "negaki", "shuning", "shunday", "shunda", "unda", "demak", "ya'ni", "yani",
+    "masalan", "jumladan", "xususan", "asosan", "umuman", "hatto", "balki",
+    "albatta", "tabiiyki", "aniqki", "ehtimol", "imkon", "imkoniyat", "sharoit",
+    "muhit", "vaziyat", "holat", "jarayon", "tizim", "usul", "uslub", "yo'l-yo'riq",
+    "yol-yoriq", "qo'llanma", "qollanma", "instruksiya", "qadam-baqadam", "bosqichma",
+    "variant", "tanlov", "imkoniyatlar", "afzallik", "kamchilik", "farq", "o'xshash",
+    "oxshash", "boshqa", "birga", "yolg'iz", "yolgiz", "birgalikda",
+    "qoidasi", "moddasi", "tezligi", "xavfsizligi", "belgisi", "chizig'i", "chizigi",
 }
 
 _ALLOWED_TECH = {
@@ -227,10 +325,13 @@ def _in_lexicon(token: str) -> bool:
         "miz",
         "siz",
         "imi",
+        "si",
+        "gi",
+        "ni",
     ):
         if t.endswith(suf) and len(t) - len(suf) >= 3:
             stem = t[: -len(suf)]
-            if stem in _UZ_LEXICON or stem + "i" in _UZ_LEXICON:
+            if stem in _UZ_LEXICON or (stem + "i") in _UZ_LEXICON or (stem + "a") in _UZ_LEXICON:
                 return True
     return False
 
@@ -303,58 +404,309 @@ def polish_uzbek_text(text: str, *, max_words: int | None = None) -> str:
     return low.strip(" ,;:")
 
 
-def default_montage_shots() -> list[dict[str, Any]]:
-    """6-shot / 15s professional Reels skeleton with clean Uzbek copy."""
+_BRIEF_NOISE = {
+    "boshqa",
+    "mavzuda",
+    "mavzu",
+    "ish",
+    "qilamiz",
+    "qilaylik",
+    "qilib",
+    "qil",
+    "ber",
+    "bering",
+    "tuzib",
+    "tuz",
+    "ssenariya",
+    "senariya",
+    "scenario",
+    "asosiy",
+    "asoan",
+    "asosan",
+    "buyicha",
+    "boyicha",
+    "bo'yicha",
+    "boyicha",
+    "degandim",
+    "deganman",
+    "iltimos",
+    "yozib",
+    "yozing",
+    "yoz",
+    "kerak",
+    "biz",
+    "bilan",
+    "uchun",
+    "tushuntiramiz",
+    "tushuntirish",
+}
+
+_LIFESTYLE_MARKERS = (
+    "baxt katta",
+    "samimiy lahz",
+    "mehr ulash",
+    "yoqimli lahza",
+    "iliq yorug",
+    "qahva yoki gul",
+    "qahva",
+    "pastel",
+    "romantik",
+    "estetika",
+    "kunliklahza",
+    "oddiy daqiqalar",
+    "shu lahzada",
+    "tinchlik bor",
+    "shaxsiy burchak",
+)
+
+_TOPIC_PACKS: list[tuple[tuple[str, ...], dict[str, Any]]] = [
+    (
+        ("yo'l", "yol", "harakat", "svetofor", "piyoda", "haydovchi", "belgi", "mashina", "modda", "qoida"),
+        {
+            "title": "Yo'l harakati qoidalari",
+            "goal": "Asosiy yo'l qoidalari va moddalarni sodda tushuntirish",
+            "music": "Aniqlik beruvchi ritm, oddiy fon",
+            "tags": ["#yolqoidalari", "#xavfsizlik", "#haydovchi", "#reels"],
+            "caption": (
+                "Yo'l qoidasi — hayot qoidasi. Asosiy moddalarni bilib yuring, "
+                "o'zingiz va boshqalar xavfsizligi uchun. "
+                "Qaysi qoida sizga eng muhim? Izohlarda yozing."
+            ),
+            "shots": [
+                {
+                    "visualUz": "Svetofor yaqin plan, sekin zoom-in",
+                    "overlayTextUz": "Yo'l qoidasi — hayot qoidasi",
+                    "purpose": "hook",
+                    "noteUz": "E'tiborni tortish",
+                },
+                {
+                    "visualUz": "To'xtash chizig'i va piyoda o'tish joyi",
+                    "overlayTextUz": "To'xtash chizig'ini biling",
+                    "purpose": "setup",
+                    "noteUz": "Kirish",
+                },
+                {
+                    "visualUz": "Yo'l belgisi close-up, qo'l ko'rsatadi",
+                    "overlayTextUz": "Belgiga qarab harakat qiling",
+                    "purpose": "detail",
+                    "noteUz": "Detal",
+                },
+                {
+                    "visualUz": "Haydovchi diqqat bilan yo'lga qaraydi",
+                    "overlayTextUz": "Tezlik — xavf manbai",
+                    "purpose": "emotion",
+                    "noteUz": "Ogohlantirish",
+                },
+                {
+                    "visualUz": "Asosiy qoida matni ekranda, aniq kadr",
+                    "overlayTextUz": "Asosiy moddani eslab qoling",
+                    "purpose": "payoff",
+                    "noteUz": "Asosiy fikr",
+                },
+                {
+                    "visualUz": "Kamera auditoriyaga qaraydi + CTA",
+                    "overlayTextUz": "Qaysi qoida eng muhim?",
+                    "purpose": "cta",
+                    "noteUz": "Izohga chaqirish",
+                },
+            ],
+        },
+    ),
+]
+
+
+def extract_brief_topic(brief: str) -> str:
+    """Strip instruction fluff; keep topic words for title/overlays."""
+    raw = _canon_apostrophe(brief or "").strip()
+    if not raw:
+        return ""
+    words = [w for w in raw.replace(",", " ").replace(".", " ").split() if w]
+    kept: list[str] = []
+    for w in words:
+        base = w.lower().strip(".,!?:;\"'«»")
+        if base in _BRIEF_NOISE or len(base) < 3:
+            continue
+        # keep "qoida(lar)" when part of traffic topic context
+        kept.append(w)
+    if not kept:
+        # fallback: first 8 words of brief
+        return " ".join(words[:8])
+    return " ".join(kept[:10])
+
+
+def resolve_topic_pack(brief: str) -> dict[str, Any] | None:
+    b = _canon_apostrophe(brief or "").lower()
+    if not b:
+        return None
+    for keys, pack in _TOPIC_PACKS:
+        if any(k in b for k in keys):
+            return pack
+    return None
+
+
+def default_montage_shots(brief: str = "") -> list[dict[str, Any]]:
+    """6-shot / 15s skeleton — topic-aware when brief is present."""
+    pack = resolve_topic_pack(brief)
+    if pack:
+        shots = []
+        for s in pack["shots"]:
+            shots.append(
+                {
+                    "startSec": 0,
+                    "endSec": 2,
+                    "visualUz": s["visualUz"],
+                    "overlayTextUz": s["overlayTextUz"],
+                    "purpose": s["purpose"],
+                    "noteUz": s["noteUz"],
+                }
+            )
+        return shots
+
+    topic = extract_brief_topic(brief) or "Yangi mavzu"
+    short = " ".join(topic.split()[:5])
     return [
         {
             "startSec": 0,
             "endSec": 2,
-            "visualUz": "Iliq yorug‘likdagi shaxsiy burchak, sekin zoom-in",
-            "overlayTextUz": "Baxt katta narsalarda emas...",
+            "visualUz": f"{short} — ochilish kadr, sekin zoom-in",
+            "overlayTextUz": f"{short} — diqqat!",
             "purpose": "hook",
-            "noteUz": "E’tiborni tortish",
+            "noteUz": "E'tiborni tortish",
         },
         {
             "startSec": 2,
             "endSec": 4,
-            "visualUz": "Qahva yoki gul yaqin plan, yumshoq fon",
-            "overlayTextUz": "...u mayda, samimiy lahzalarda",
+            "visualUz": f"{short} asosiy obyekt yaqin plan",
+            "overlayTextUz": "Mavzuga qisqa kirish",
             "purpose": "setup",
-            "noteUz": "Mavzuga kirish",
+            "noteUz": "Kirish",
         },
         {
             "startSec": 4,
             "endSec": 7,
-            "visualUz": "Qo‘l harakati / detal close-up",
-            "overlayTextUz": "Oddiy daqiqalar ham qadrli",
+            "visualUz": "Muhim detal / belgi close-up",
+            "overlayTextUz": "Asosiy fikrni oching",
             "purpose": "detail",
-            "noteUz": "Detal ko‘rsatish",
+            "noteUz": "Detal",
         },
         {
             "startSec": 7,
             "endSec": 10,
-            "visualUz": "Tabassum yoki iliq pastel kadr",
-            "overlayTextUz": "Shu lahzada tinchlik bor",
+            "visualUz": "Inson yoki reaksiya, aniq fon",
+            "overlayTextUz": "Nima uchun muhim?",
             "purpose": "emotion",
-            "noteUz": "Hissiyot",
+            "noteUz": "Ahamiyat",
         },
         {
             "startSec": 10,
             "endSec": 13,
-            "visualUz": "Estetik umumiy ko‘rinish, sekin pan",
-            "overlayTextUz": "O‘zingizga mehr ulashing",
+            "visualUz": "Xulosa kadr, sekin pan",
+            "overlayTextUz": "Esda qoladigan xulosa",
             "purpose": "payoff",
-            "noteUz": "Asosiy fikr",
+            "noteUz": "Xulosa",
         },
         {
             "startSec": 13,
             "endSec": 15,
-            "visualUz": "Yuz / reaksiya + ekranda CTA matni",
-            "overlayTextUz": "Bugun eng yoqimli lahza qaysi?",
+            "visualUz": "Kamera auditoriyaga + CTA matni",
+            "overlayTextUz": "Izohlarda fikringizni yozing",
             "purpose": "cta",
-            "noteUz": "Izohga chaqirish",
+            "noteUz": "Chaqiruv",
         },
     ]
+
+
+def scenario_text_blob(result: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ("titleUz", "goalUz", "hookUz", "captionPrimaryUz", "ctaUz"):
+        val = result.get(key)
+        if isinstance(val, str):
+            parts.append(val)
+        elif isinstance(val, list):
+            parts.extend(str(x) for x in val)
+    shots = result.get("shots")
+    if isinstance(shots, list):
+        for s in shots:
+            if isinstance(s, dict):
+                parts.append(str(s.get("visualUz") or ""))
+                parts.append(str(s.get("overlayTextUz") or ""))
+    return _canon_apostrophe(" ".join(parts)).lower()
+
+
+def _shots_blob(result: dict[str, Any]) -> str:
+    parts: list[str] = []
+    shots = result.get("shots")
+    if isinstance(shots, list):
+        for s in shots:
+            if isinstance(s, dict):
+                parts.append(str(s.get("visualUz") or ""))
+                parts.append(str(s.get("overlayTextUz") or ""))
+    for key in ("hookUz", "captionPrimaryUz"):
+        val = result.get(key)
+        if isinstance(val, str):
+            parts.append(val)
+    return _canon_apostrophe(" ".join(parts)).lower()
+
+
+def is_off_topic_for_brief(result: dict[str, Any], brief: str) -> bool:
+    """True when brief asks a concrete topic but output stuck on lifestyle/romance template."""
+    brief_c = _canon_apostrophe(brief or "").strip()
+    if len(brief_c) < 8:
+        return False
+    brief_l = brief_c.lower()
+    if any(m in brief_l for m in ("muhabbat", "sevgi", "romant", "baxt", "estetika", "qahva")):
+        return False
+    # Ignore title/goal — model often pastes the brief there while shots stay romantic.
+    blob = _shots_blob(result)
+    lifestyle_hits = sum(1 for m in _LIFESTYLE_MARKERS if m in blob)
+    topic = extract_brief_topic(brief_c)
+    topic_tokens = [
+        t
+        for t in _raw_tokens(topic)
+        if t not in _BRIEF_NOISE and t not in {"qilib", "berish", "tushuntiramiz", "tushuntirish", "haraka"}
+    ]
+    topic_hits = sum(1 for t in topic_tokens if t in blob)
+    pack = resolve_topic_pack(brief_c)
+    if pack:
+        pack_keys = ("yo'l", "yol", "qoida", "svetofor", "piyoda", "haydovchi", "belgi", "modda", "tezlik")
+        pack_hits = sum(1 for k in pack_keys if k in blob)
+        if lifestyle_hits >= 2:
+            return True
+        if pack_hits == 0:
+            return True
+    if topic_tokens and topic_hits == 0 and lifestyle_hits >= 1:
+        return True
+    if lifestyle_hits >= 2 and topic_hits <= 1:
+        return True
+    return False
+
+
+def force_topic_scenario(result: dict[str, Any], brief: str) -> dict[str, Any]:
+    """Rebuild copy from brief topic pack / generic topic skeleton."""
+    pack = resolve_topic_pack(brief)
+    topic = extract_brief_topic(brief) or "Yangi mavzu"
+    shots = default_montage_shots(brief)
+    result["shots"] = shots
+    if pack:
+        result["titleUz"] = pack["title"]
+        result["goalUz"] = pack["goal"]
+        result["musicMoodUz"] = pack["music"]
+        result["captionPrimaryUz"] = pack["caption"]
+        result["hashtagsUz"] = list(pack["tags"])
+    else:
+        short = " ".join(topic.split()[:6])
+        result["titleUz"] = short
+        result["goalUz"] = f"{short} — auditoriyaga tushunarli tushuntirish"
+        result["musicMoodUz"] = "Aniqlik beruvchi, oddiy ritm"
+        result["captionPrimaryUz"] = (
+            f"{short}. Asosiy fikrlarni qisqa va aniq tushuntiramiz. "
+            "Foydali bilib qoling va izohlarda savolingizni yozing."
+        )
+        slug = "".join(ch for ch in short.lower() if ch.isalnum())[:18] or "mavzu"
+        result["hashtagsUz"] = [f"#{slug}", "#reels", "#foydali"]
+    result["hookUz"] = shots[0]["overlayTextUz"]
+    result["ctaUz"] = shots[-1]["overlayTextUz"]
+    return result
 
 
 def _redistribute_timeline(shots: list[dict[str, Any]], duration_sec: int) -> list[dict[str, Any]]:
@@ -372,9 +724,14 @@ def _redistribute_timeline(shots: list[dict[str, Any]], duration_sec: int) -> li
     return shots
 
 
-def coerce_timed_shots(result: dict[str, Any], *, duration_sec: int = DEFAULT_DURATION_SEC) -> list[dict[str, Any]]:
+def coerce_timed_shots(
+    result: dict[str, Any],
+    *,
+    duration_sec: int = DEFAULT_DURATION_SEC,
+    brief: str = "",
+) -> list[dict[str, Any]]:
     """Normalize to 6–8 timed shots across durationSec. Accepts objects or legacy strings."""
-    defaults = default_montage_shots()
+    defaults = default_montage_shots(brief)
     raw = result.get("shots")
     out: list[dict[str, Any]] = []
 
@@ -414,7 +771,6 @@ def coerce_timed_shots(result: dict[str, Any], *, duration_sec: int = DEFAULT_DU
         out.append(dict(defaults[len(out) % len(defaults)]))
     out = out[:MAX_SHOTS]
 
-    # First/last purposes fixed; fill middle roles if missing variety.
     purpose_ladder = ["hook", "setup", "detail", "emotion", "payoff", "cta", "body", "transition"]
     for i, shot in enumerate(out):
         if i == 0:
@@ -431,19 +787,30 @@ def coerce_timed_shots(result: dict[str, Any], *, duration_sec: int = DEFAULT_DU
         overlay = str(shot.get("overlayTextUz") or "").strip()
         note = str(shot.get("noteUz") or "").strip()
         key = visual.lower()
+        lifestyle_overlay = any(m in overlay.lower() for m in _LIFESTYLE_MARKERS)
+        lifestyle_visual = any(m in visual.lower() for m in _LIFESTYLE_MARKERS)
+        brief_wants_other = bool(brief.strip()) and not any(
+            m in _canon_apostrophe(brief).lower() for m in ("muhabbat", "sevgi", "romant", "baxt", "qahva")
+        )
         if (
             looks_like_gibberish_uz(visual)
             or not visual
             or len(visual) < 8
             or (key in seen)
             or (len(set(v for v in visuals if len(v) >= 8)) <= 1 and i > 0)
+            or (brief_wants_other and lifestyle_visual)
         ):
             shot["visualUz"] = defaults[min(i, len(defaults) - 1)]["visualUz"]
         else:
             shot["visualUz"] = polish_uzbek_text(visual, max_words=16)
         seen.add(str(shot["visualUz"]).lower())
 
-        if looks_like_gibberish_uz(overlay) or not overlay or len(overlay.split()) < 2:
+        if (
+            looks_like_gibberish_uz(overlay)
+            or not overlay
+            or len(overlay.split()) < 2
+            or (brief_wants_other and lifestyle_overlay)
+        ):
             shot["overlayTextUz"] = defaults[min(i, len(defaults) - 1)]["overlayTextUz"]
         else:
             shot["overlayTextUz"] = polish_uzbek_text(overlay, max_words=9)
@@ -586,7 +953,7 @@ def normalize_scenario(
     brief: str,
     preferred_format: str | None,
 ) -> dict[str, Any]:
-    result["schemaVersion"] = "1.4"
+    result["schemaVersion"] = "1.5"
     result["aspectRatio"] = "9:16"
     duration = _as_int(result.get("durationSec"), DEFAULT_DURATION_SEC)
     if duration < 12:
@@ -608,63 +975,95 @@ def normalize_scenario(
         fmt = "REELS"
     result["format"] = fmt
 
-    if brief:
-        title = polish_uzbek_text(str(result.get("titleUz") or ""), max_words=12)
-        if looks_like_latin_topic_echo(title) or looks_like_gibberish_uz(title):
-            result["titleUz"] = brief[:90]
-        else:
-            result["titleUz"] = title or brief[:90]
-        goal = polish_uzbek_text(str(result.get("goalUz") or ""), max_words=20)
-        if not goal or looks_like_latin_topic_echo(goal) or looks_like_gibberish_uz(goal):
-            result["goalUz"] = f"{brief[:160].rstrip('.')} — auditoriyani jalb qilish"
-        else:
-            result["goalUz"] = goal
+    topic = extract_brief_topic(brief)
+    pack = resolve_topic_pack(brief)
 
-    mood = polish_uzbek_text(str(result.get("musicMoodUz") or ""), max_words=8)
-    if not mood or looks_like_gibberish_uz(mood):
-        result["musicMoodUz"] = "Sekin akustik yoki iliq lo-fi"
+    title = polish_uzbek_text(str(result.get("titleUz") or ""), max_words=10)
+    title_is_instruction = bool(title) and any(
+        w in title.lower() for w in ("tuzib", "ssenariya", "senariya", "yozib", "qilamiz", "ber")
+    )
+    if (
+        not title
+        or looks_like_latin_topic_echo(title)
+        or looks_like_gibberish_uz(title)
+        or title_is_instruction
+        or (brief and title.strip().lower() == brief.strip().lower()[: len(title)])
+    ):
+        result["titleUz"] = (pack["title"] if pack else topic)[:90] or "Yangi Reels ssenariysi"
     else:
-        result["musicMoodUz"] = mood
+        result["titleUz"] = title
+
+    goal = polish_uzbek_text(str(result.get("goalUz") or ""), max_words=20)
+    if (
+        not goal
+        or looks_like_latin_topic_echo(goal)
+        or looks_like_gibberish_uz(goal)
+        or (brief and "auditoriyani jalb" in goal.lower())
+    ):
+        result["goalUz"] = pack["goal"] if pack else (
+            f"{topic} — auditoriyaga aniq va foydali tushuntirish" if topic else "Auditoriyaga foydali kontent"
+        )
+    else:
+        result["goalUz"] = goal
 
     for key in ("hashtagsUz", "risksUz", "postingTipsUz", "captionAlternativesUz"):
         result[key] = as_str_list(result.get(key))
 
-    shots = coerce_timed_shots(result, duration_sec=duration)
+    shots = coerce_timed_shots(result, duration_sec=duration, brief=brief)
     result["shots"] = shots
+
+    # If still off-topic vs brief — hard rebuild from topic pack.
+    if brief and is_off_topic_for_brief(result, brief):
+        result = force_topic_scenario(result, brief)
+        shots = coerce_timed_shots(result, duration_sec=duration, brief=brief)
+        result["shots"] = shots
+
     result["durationSec"] = int(shots[-1]["endSec"]) if shots else duration
-    # Legacy string list for older UI/clients.
     result["shotListUz"] = [
         f"{s['startSec']}-{s['endSec']}s · {s['visualUz']} · «{s['overlayTextUz']}»" for s in shots
     ]
+
+    mood = polish_uzbek_text(str(result.get("musicMoodUz") or ""), max_words=8)
+    mood_lifestyle = any(m in mood.lower() for m in ("romantik", "iliq lo-fi", "akustik, iliq"))
+    if not mood or looks_like_gibberish_uz(mood) or (brief and pack and mood_lifestyle):
+        result["musicMoodUz"] = pack["music"] if pack else "Aniqlik beruvchi, oddiy ritm"
+    else:
+        result["musicMoodUz"] = mood
 
     hook = polish_uzbek_text(
         str(result.get("hookUz") or shots[0].get("overlayTextUz") or ""),
         max_words=9,
     )
-    if not hook or looks_like_gibberish_uz(hook):
-        hook = str(shots[0].get("overlayTextUz") or "Diqqat — keyingi lahza muhim")
+    if not hook or looks_like_gibberish_uz(hook) or any(m in hook.lower() for m in _LIFESTYLE_MARKERS):
+        hook = str(shots[0].get("overlayTextUz") or "Diqqat — muhim fikr")
     result["hookUz"] = hook
 
-    caption = polish_uzbek_text(str(result.get("captionPrimaryUz") or ""), max_words=40)
+    caption = polish_uzbek_text(str(result.get("captionPrimaryUz") or ""), max_words=45)
+    caption_l = caption.lower()
     caption_is_cta_like = bool(caption) and len(caption.split()) <= 6 and any(
-        w in caption.lower() for w in ("izoh", "yozing", "like", "comment", "saqlang")
+        w in caption_l for w in ("izoh", "yozing", "like", "comment", "saqlang")
     )
+    caption_lifestyle = sum(1 for m in _LIFESTYLE_MARKERS if m in caption_l) >= 1
+    caption_has_raw_brief = bool(brief) and brief.strip().lower()[:40] in caption_l
     if (
         not caption
         or looks_like_gibberish_uz(caption)
         or len(caption) < 24
         or caption_is_cta_like
+        or (brief and caption_lifestyle)
+        or caption_has_raw_brief
     ):
-        if brief and len(brief) > 8:
+        if pack:
+            result["captionPrimaryUz"] = pack["caption"]
+        elif topic:
             result["captionPrimaryUz"] = (
-                f"{brief.strip()[:100].rstrip('.')}. "
-                "Haqiqiy iliqlik oddiy daqiqalarda yashaydi. "
-                "O'zingizga mehr ulashishni unutmang."
+                f"{topic}. Asosiy fikrlarni qisqa va aniq tushuntiramiz. "
+                "Foydali bilib qoling — savolingizni izohlarda yozing."
             )
         else:
             result["captionPrimaryUz"] = (
-                "Haqiqiy iliqlik va go'zallik yonimizdagi oddiy daqiqalarda bo'ladi. "
-                "O'zingizga mehr ulashishni unutmang."
+                "Bugungi postda asosiy fikrni sodda tushuntiramiz. "
+                "Foydali bo'lsa — izohlarda fikringizni yozing."
             )
     else:
         result["captionPrimaryUz"] = caption
@@ -698,8 +1097,13 @@ def normalize_scenario(
     why = polish_uzbek_text(str(result.get("whyThisWorksUz") or ""), max_words=28)
     if why and not looks_like_gibberish_uz(why):
         result["whyThisWorksUz"] = why
+    else:
+        result["whyThisWorksUz"] = "Qisqa hook, aniq kadrlar va CTA — insightsdagi ishlagan uslub."
     tips = [polish_uzbek_text(t, max_words=16) for t in as_str_list(result.get("postingTipsUz"))]
-    result["postingTipsUz"] = [t for t in tips if t and not looks_like_gibberish_uz(t)][:4]
+    result["postingTipsUz"] = [t for t in tips if t and not looks_like_gibberish_uz(t)][:4] or [
+        "Birinchi 2 soniyada asosiy savolni qo'ying",
+        "Har kadrda bitta fikr",
+    ]
 
     tags = as_str_list(result.get("hashtagsUz"))
     cleaned_tags: list[str] = []
@@ -708,9 +1112,14 @@ def normalize_scenario(
         t = "".join(ch for ch in t if ch.isalnum() or ch == "#" or ch in "ʻʼ'")
         if len(t) > 2:
             cleaned_tags.append(t.lower())
-    if not cleaned_tags:
-        cleaned_tags = ["#estetika", "#muhabbat", "#baxt", "#kunliklahzalar"]
-    result["hashtagsUz"] = cleaned_tags
+    lifestyle_tags = {"#estetika", "#muhabbat", "#baxt", "#kunliklahzalar"}
+    if pack:
+        result["hashtagsUz"] = list(pack["tags"])
+    elif not cleaned_tags or (brief and set(cleaned_tags) & lifestyle_tags and pack is None):
+        slug = "".join(ch for ch in (topic or "mavzu").lower() if ch.isalnum())[:18] or "mavzu"
+        result["hashtagsUz"] = [f"#{slug}", "#reels", "#foydali"]
+    else:
+        result["hashtagsUz"] = cleaned_tags
     return result
 
 
