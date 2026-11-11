@@ -46,6 +46,7 @@ export class InstagramScenarioPage implements OnInit {
   protected readonly scenario = signal<ContentScenario | null>(null);
   protected readonly generatingScenario = signal(false);
   protected readonly scenarioBrief = signal('');
+  protected readonly copyingScenario = signal(false);
 
   protected readonly selectedAccount = computed(() => {
     const id = this.selectedAccountId();
@@ -54,6 +55,10 @@ export class InstagramScenarioPage implements OnInit {
 
   protected readonly canGenerate = computed(
     () => !!this.insightReport() && this.insightReport()?.status === 'READY' && !this.generatingScenario()
+  );
+
+  protected readonly canCopyScenario = computed(
+    () => this.scenario()?.status === 'READY' && !this.copyingScenario()
   );
 
   ngOnInit(): void {
@@ -76,6 +81,32 @@ export class InstagramScenarioPage implements OnInit {
 
   protected scenarioBriefChange(event: Event): void {
     this.scenarioBrief.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected async copyScenario(): Promise<void> {
+    if (this.scenario()?.status !== 'READY') {
+      return;
+    }
+    const text = this.buildScenarioCopyText();
+    if (!text.trim()) {
+      this.error.set(this.i18n.t('instagram.scenario_copy_failed'));
+      return;
+    }
+    this.copyingScenario.set(true);
+    this.error.set(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      this.notice.set(this.i18n.t('instagram.scenario_copied'));
+    } catch {
+      try {
+        this.copyViaTextarea(text);
+        this.notice.set(this.i18n.t('instagram.scenario_copied'));
+      } catch {
+        this.error.set(this.i18n.t('instagram.scenario_copy_failed'));
+      }
+    } finally {
+      this.copyingScenario.set(false);
+    }
   }
 
   protected generateScenario(): void {
@@ -128,6 +159,7 @@ export class InstagramScenarioPage implements OnInit {
     visualUz: string;
     overlayTextUz: string;
     purpose: string;
+    noteUz: string;
   }> {
     const raw = this.scenario()?.result?.['shots'];
     if (!Array.isArray(raw)) {
@@ -136,14 +168,15 @@ export class InstagramScenarioPage implements OnInit {
     return raw
       .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
       .map((item, index) => {
-        const start = Number(item['startSec'] ?? index * 3);
-        const end = Number(item['endSec'] ?? start + 3);
+        const start = Number(item['startSec'] ?? index * 2);
+        const end = Number(item['endSec'] ?? start + 2);
         return {
-          startSec: Number.isFinite(start) ? start : index * 3,
-          endSec: Number.isFinite(end) ? end : index * 3 + 3,
+          startSec: Number.isFinite(start) ? start : index * 2,
+          endSec: Number.isFinite(end) ? end : index * 2 + 2,
           visualUz: String(item['visualUz'] ?? '').trim(),
           overlayTextUz: String(item['overlayTextUz'] ?? '').trim(),
-          purpose: String(item['purpose'] ?? '').trim() || 'body'
+          purpose: String(item['purpose'] ?? '').trim() || 'body',
+          noteUz: String(item['noteUz'] ?? '').trim()
         };
       })
       .filter((s) => s.visualUz || s.overlayTextUz);
@@ -155,6 +188,91 @@ export class InstagramScenarioPage implements OnInit {
       return null;
     }
     return String(value);
+  }
+
+  private buildScenarioCopyText(): string {
+    const lines: string[] = [];
+    const title = this.scenarioText('titleUz');
+    const goal = this.scenarioText('goalUz');
+    const format = this.scenarioText('format');
+    const aspect = this.scenarioText('aspectRatio');
+    const duration = this.scenarioText('durationSec');
+    const music = this.scenarioText('musicMoodUz');
+    const hook = this.scenarioText('hookUz');
+    const caption = this.scenarioText('captionPrimaryUz');
+    const cta = this.scenarioText('ctaUz');
+    const why = this.scenarioText('whyThisWorksUz');
+    const tips = this.scenarioList('postingTipsUz');
+    const tags = this.scenarioList('hashtagsUz');
+    const shots = this.scenarioShots();
+
+    if (title) {
+      lines.push(title);
+    }
+    if (goal) {
+      lines.push(goal);
+    }
+    const meta = [format, aspect, duration ? `${duration}s` : null].filter(Boolean).join(' · ');
+    if (meta) {
+      lines.push(meta);
+    }
+    if (music) {
+      lines.push(`${this.i18n.t('instagram.scenario_music')}: ${music}`);
+    }
+    if (hook) {
+      lines.push('', `${this.i18n.t('instagram.analysis_hook')}: ${hook}`);
+    }
+    if (shots.length) {
+      lines.push('', this.i18n.t('instagram.scenario_shots') + ':');
+      shots.forEach((s, i) => {
+        lines.push(
+          `${i + 1}) ${s.startSec}–${s.endSec}s [${s.purpose}]`,
+          `   ${this.i18n.t('instagram.scenario_shot_visual')}: ${s.visualUz}`,
+          `   ${this.i18n.t('instagram.scenario_shot_overlay')}: ${s.overlayTextUz}`
+        );
+        if (s.noteUz) {
+          lines.push(`   ${this.i18n.t('instagram.scenario_shot_note')}: ${s.noteUz}`);
+        }
+      });
+    } else {
+      const legacy = this.scenarioList('shotListUz');
+      if (legacy.length) {
+        lines.push('', this.i18n.t('instagram.scenario_shots') + ':');
+        legacy.forEach((s, i) => lines.push(`${i + 1}) ${s}`));
+      }
+    }
+    if (caption) {
+      lines.push('', `${this.i18n.t('instagram.scenario_caption')}:`, caption);
+    }
+    if (cta) {
+      lines.push('', `${this.i18n.t('instagram.scenario_cta')}: ${cta}`);
+    }
+    if (why) {
+      lines.push('', `${this.i18n.t('instagram.scenario_why')}: ${why}`);
+    }
+    if (tips.length) {
+      lines.push('', `${this.i18n.t('instagram.scenario_tips')}:`);
+      tips.forEach((t) => lines.push(`- ${t}`));
+    }
+    if (tags.length) {
+      lines.push('', tags.join(' '));
+    }
+    return lines.join('\n').trim();
+  }
+
+  private copyViaTextarea(text: string): void {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'fixed';
+    el.style.left = '-9999px';
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(el);
+    if (!ok) {
+      throw new Error('copy failed');
+    }
   }
 
   private loadAccounts(): void {

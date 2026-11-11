@@ -29,28 +29,29 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
 
     brief = (req.brief or "").strip()
     brief_line = (
-        f"USER BRIEF (ASOSIY MAQSAD — shu mavzuda 9s montaj): {brief}"
+        f"USER BRIEF (ASOSIY MAQSAD — shu mavzuda 15s to‘liq montaj): {brief}"
         if brief
         else "USER BRIEF: yo‘q — insights doNext dan yangi mavzu tanlang."
     )
     user_text = (
-        "9 soniyalik Reels/Story montaj ssenariyasini yozing (schema 1.3).\n"
-        "shots: aniq 3 kadr (0-3 hook, 3-6 body, 6-9 cta).\n"
-        "Faqat sodda o‘zbek lotin. Ma’nosiz/g‘alati iboralar YO‘Q.\n"
-        "overlayTextUz maksimal 10 so‘z. visualUz — kamera/obyekt.\n"
+        "15 soniyalik Reels/Story TO‘LIQ montaj ssenariyasini yozing (schema 1.4).\n"
+        "shots: KAMIDA 6, ko‘pi bilan 8 kadr (3 ta YETMAS). Har kadr ~2s.\n"
+        "Matnlarni MUHARRIR kabi tekshiring — faqat toza, tushunarli o‘zbek lotin.\n"
+        "Ma’nosiz/g‘alati iboralar YO‘Q. overlayTextUz 4–9 so‘z.\n"
+        "Har kadr visualUz boshqacha. Oxirgi kadr = CTA.\n"
         "Insightsdan faqat USLUB/PATTERN.\n"
         f"{brief_line}\n"
         f"Preferred format: {req.preferredFormat or 'REELS'}\n\n"
         f"Insights JSON:\n{json.dumps(req.insights, ensure_ascii=False)}\n\n"
-        "Faqat scenario schema 1.3 JSON."
+        "Faqat scenario schema 1.4 JSON."
     )
     result = ollama_chat(
         model=OLLAMA_TEXT_MODEL,
         system=SCENARIO_SYSTEM,
         user_text=user_text,
         images=None,
-        temperature=0.55,
-        repeat_penalty=1.25,
+        temperature=0.5,
+        repeat_penalty=1.28,
     )
     result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
     issues = scenario_quality_issues(result)
@@ -60,16 +61,17 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
             model=OLLAMA_TEXT_MODEL,
             system=SCENARIO_SYSTEM,
             user_text=(
-                "Oldingi javob yaroqsiz. Qayta yozing — SODDA o‘zbek, 9s / 3 shot.\n"
-                "Har shot: startSec,endSec,visualUz,overlayTextUz,purpose.\n"
-                "Gallyutsinatsiya iboralar taqiqlanadi. Overlay qisqa.\n"
+                "Oldingi javob yaroqsiz. Qayta yozing — TOZA o‘zbek, 15s, 6–8 shot.\n"
+                "Har shot: startSec,endSec,visualUz,overlayTextUz,purpose,noteUz.\n"
+                "So‘zlarni to‘g‘ri tuzing. Gallyutsinatsiya taqiqlanadi.\n"
+                "3 kadr yetarli emas — kamida 6 ta yozing.\n"
                 f"Muammolar: {', '.join(issues)}\n\n"
                 f"{brief_line}\n"
                 f"Insights:\n{json.dumps(req.insights, ensure_ascii=False)}"
             ),
             images=None,
-            temperature=0.4,
-            repeat_penalty=1.3,
+            temperature=0.35,
+            repeat_penalty=1.32,
         )
         result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
 
@@ -87,9 +89,9 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
             detail=f"Model did not return valid scenario schema: {scenario_quality_issues(result)}",
         )
 
-    result["schemaVersion"] = "1.3"
+    result["schemaVersion"] = "1.4"
     return {
-        "schemaVersion": "1.3",
+        "schemaVersion": "1.4",
         "model": OLLAMA_TEXT_MODEL,
         "promptVersion": SCENARIO_PROMPT_VERSION,
         "result": result,

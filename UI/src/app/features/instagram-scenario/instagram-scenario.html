@@ -118,12 +118,24 @@
         }
 
         @if (scenario()?.status === 'READY') {
-          @if (scenarioText('titleUz'); as title) {
-            <h2 class="font-display text-lg font-semibold text-white sm:text-xl">{{ title }}</h2>
-          }
-          @if (scenarioText('goalUz'); as goal) {
-            <p class="text-sm text-white/80">{{ goal }}</p>
-          }
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0 space-y-1">
+              @if (scenarioText('titleUz'); as title) {
+                <h2 class="font-display text-lg font-semibold text-white sm:text-xl">{{ title }}</h2>
+              }
+              @if (scenarioText('goalUz'); as goal) {
+                <p class="text-sm text-white/80">{{ goal }}</p>
+              }
+            </div>
+            <button
+              type="button"
+              class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs"
+              [disabled]="!canCopyScenario()"
+              (click)="copyScenario()"
+            >
+              {{ copyingScenario() ? ('instagram.scenario_copying' | t) : ('instagram.scenario_copy' | t) }}
+            </button>
+          </div>
           <div class="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
             @if (scenarioText('format'); as fmt) {
               <span>{{ fmt }}</span>
@@ -155,21 +167,25 @@
                 <table class="min-w-full text-left text-sm text-white/80">
                   <thead class="bg-ink-soft/60 text-[10px] uppercase tracking-wide text-white/40">
                     <tr>
+                      <th class="px-3 py-2 font-bold">#</th>
                       <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_time' | t }}</th>
                       <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_visual' | t }}</th>
                       <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_overlay' | t }}</th>
                       <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_purpose' | t }}</th>
+                      <th class="px-3 py-2 font-bold">{{ 'instagram.scenario_shot_note' | t }}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (s of scenarioShots(); track s.startSec + '-' + s.purpose) {
+                    @for (s of scenarioShots(); track $index) {
                       <tr class="border-t border-white/8 align-top">
+                        <td class="px-3 py-2.5 text-white/40">{{ $index + 1 }}</td>
                         <td class="whitespace-nowrap px-3 py-2.5 font-medium text-accent-2/90">
                           {{ s.startSec }}–{{ s.endSec }}s
                         </td>
                         <td class="px-3 py-2.5">{{ s.visualUz }}</td>
                         <td class="px-3 py-2.5 text-white/90">{{ s.overlayTextUz }}</td>
                         <td class="px-3 py-2.5 uppercase tracking-wide text-white/45">{{ s.purpose }}</td>
+                        <td class="px-3 py-2.5 text-white/55">{{ s.noteUz }}</td>
                       </tr>
                     }
                   </tbody>

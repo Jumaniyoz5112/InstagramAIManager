@@ -130,6 +130,9 @@ _UZ_LEXICON = {
     "xursand", "xafa", "tinich", "tinch", "osoyishta", "issiq", "sovuq", "yashil", "oq",
     "qora", "qizil", "ko'k", "kok", "sariq", "kulrang", "hashtaglar", "teg", "tag",
     "in", "out", "up", "story", "stories", "carousel", "image", "feed",
+    "minnatdormiz", "tinchlik", "ulashing", "detal", "pan", "reaksiya", "piyola",
+    "lahza", "lahzada", "qadrli", "joriy", "montaj", "ssenariya", "overlay",
+    "setup", "detail", "emotion", "payoff", "transition", "note", "purpose",
 }
 
 _ALLOWED_TECH = {
@@ -151,19 +154,90 @@ _BAD_PHRASE_FRAGMENTS = (
     "erkalarning",
     "kopiya iliq",
     "qoncha",
+    "seki zoom",
+    "kopiya",
 )
+
+# Common model typos / broken stems → clean Uzbek.
+_TYPO_FIXES = (
+    ("seki zoom", "sekin zoom"),
+    ("seki ", "sekin "),
+    ("oquvda", "yorug‘likda"),
+    ("o'quvda", "yorug‘likda"),
+    ("kopiya", "piyola"),
+    ("erkalarning", "lahzalarning"),
+    ("  ", " "),
+)
+
+_ALLOWED_PURPOSES = {
+    "hook",
+    "setup",
+    "detail",
+    "body",
+    "emotion",
+    "payoff",
+    "cta",
+    "transition",
+}
+
+MIN_SHOTS = 6
+MAX_SHOTS = 8
+DEFAULT_DURATION_SEC = 15
+
+
+def _canon_apostrophe(text: str) -> str:
+    return (
+        (text or "")
+        .replace("‘", "'")
+        .replace("’", "'")
+        .replace("ʻ", "'")
+        .replace("ʼ", "'")
+        .replace("`", "'")
+        .replace("o'", "o'")
+        .replace("g'", "g'")
+    )
 
 
 def _raw_tokens(text: str) -> list[str]:
-    raw = "".join(
-        ch.lower() if ch.isalnum() or ch.isspace() or ch in "ʻʼ'-:" else " " for ch in (text or "")
-    )
-    return [t for t in raw.split() if t]
+    t = _canon_apostrophe(text).lower()
+    raw = "".join(ch if ch.isalnum() or ch.isspace() or ch in "'-:" else " " for ch in t)
+    return [tok for tok in raw.split() if tok]
+
+
+def _in_lexicon(token: str) -> bool:
+    t = _canon_apostrophe(token).lower().strip(".,!?:;\"'«»")
+    if not t:
+        return False
+    if t in _ALLOWED_TECH or t in _UZ_LEXICON:
+        return True
+    # Strip common Uzbek endings and retry (daqiqalar → daqiqa, matni → matn).
+    for suf in (
+        "larning",
+        "ning",
+        "lari",
+        "lar",
+        "dan",
+        "ga",
+        "ni",
+        "da",
+        "ib",
+        "ish",
+        "ydi",
+        "adi",
+        "miz",
+        "siz",
+        "imi",
+    ):
+        if t.endswith(suf) and len(t) - len(suf) >= 3:
+            stem = t[: -len(suf)]
+            if stem in _UZ_LEXICON or stem + "i" in _UZ_LEXICON:
+                return True
+    return False
 
 
 def looks_like_gibberish_uz(text: str) -> bool:
     """Heuristic: invented compounds / MT word-salad in supposed Uzbek copy."""
-    t = (text or "").strip().lower()
+    t = _canon_apostrophe(text).strip().lower()
     if not t:
         return True
     for frag in _BAD_PHRASE_FRAGMENTS:
@@ -177,17 +251,17 @@ def looks_like_gibberish_uz(text: str) -> bool:
         return True
     weird = 0
     for tok in tokens:
-        base = tok.strip(".,!?:;\"'«»")
+        base = tok.strip(".,!?:;\"'«»+/")
         if not base:
             continue
-        if base in _ALLOWED_TECH or base in _UZ_LEXICON:
+        if _in_lexicon(base):
             continue
         # long invented mash
         if len(base) >= 14:
             weird += 2
             continue
         # consonant pile unusual for Uzbek latin
-        vowels = sum(1 for ch in base if ch in "aeiouoʻʼ'аеёиоуыэюя")
+        vowels = sum(1 for ch in base if ch in "aeiouo'")
         if len(base) >= 6 and vowels == 0:
             weird += 2
             continue
@@ -197,13 +271,9 @@ def looks_like_gibberish_uz(text: str) -> bool:
         ):
             weird += 3
             continue
-        if base.isascii() and base.isalpha() and base not in _UZ_LEXICON and len(base) > 3:
-            # unknown stem with Uzbek-looking ending → stronger penalty
-            if any(base.endswith(suf) for suf in ("ning", "lar", "dan", "ga", "ni", "da", "ib", "ish")):
-                weird += 2
-            else:
-                weird += 1
-    return (weird / max(len(tokens), 1)) >= 0.35 or weird >= 3
+        if base.isascii() and base.isalpha() and len(base) > 3:
+            weird += 1
+    return (weird / max(len(tokens), 1)) >= 0.4 or weird >= 4
 
 
 def _as_int(val: Any, default: int) -> int:
@@ -213,77 +283,177 @@ def _as_int(val: Any, default: int) -> int:
         return default
 
 
-def coerce_timed_shots(result: dict[str, Any]) -> list[dict[str, Any]]:
-    """Normalize to 3 timed shots (0-3 / 3-6 / 6-9). Accepts objects or legacy strings."""
-    defaults = [
+def polish_uzbek_text(text: str, *, max_words: int | None = None) -> str:
+    """Fix common model typos and tighten wording."""
+    t = _canon_apostrophe(text).strip()
+    if not t:
+        return ""
+    low = t
+    for bad, good in _TYPO_FIXES:
+        # case-insensitive replace
+        idx = low.lower().find(bad)
+        while idx >= 0:
+            low = low[:idx] + good + low[idx + len(bad) :]
+            idx = low.lower().find(bad, idx + len(good))
+    low = " ".join(low.split())
+    if max_words is not None:
+        words = low.split()
+        if len(words) > max_words:
+            low = " ".join(words[:max_words])
+    return low.strip(" ,;:")
+
+
+def default_montage_shots() -> list[dict[str, Any]]:
+    """6-shot / 15s professional Reels skeleton with clean Uzbek copy."""
+    return [
         {
             "startSec": 0,
-            "endSec": 3,
+            "endSec": 2,
             "visualUz": "Iliq yorug‘likdagi shaxsiy burchak, sekin zoom-in",
             "overlayTextUz": "Baxt katta narsalarda emas...",
             "purpose": "hook",
+            "noteUz": "E’tiborni tortish",
         },
         {
-            "startSec": 3,
-            "endSec": 6,
-            "visualUz": "Tabassum yoki yaqin plan, yumshoq pastel fon",
+            "startSec": 2,
+            "endSec": 4,
+            "visualUz": "Qahva yoki gul yaqin plan, yumshoq fon",
             "overlayTextUz": "...u mayda, samimiy lahzalarda",
-            "purpose": "body",
+            "purpose": "setup",
+            "noteUz": "Mavzuga kirish",
         },
         {
-            "startSec": 6,
-            "endSec": 9,
-            "visualUz": "Estetik umumiy kadr, oxirida matn",
+            "startSec": 4,
+            "endSec": 7,
+            "visualUz": "Qo‘l harakati / detal close-up",
+            "overlayTextUz": "Oddiy daqiqalar ham qadrli",
+            "purpose": "detail",
+            "noteUz": "Detal ko‘rsatish",
+        },
+        {
+            "startSec": 7,
+            "endSec": 10,
+            "visualUz": "Tabassum yoki iliq pastel kadr",
+            "overlayTextUz": "Shu lahzada tinchlik bor",
+            "purpose": "emotion",
+            "noteUz": "Hissiyot",
+        },
+        {
+            "startSec": 10,
+            "endSec": 13,
+            "visualUz": "Estetik umumiy ko‘rinish, sekin pan",
+            "overlayTextUz": "O‘zingizga mehr ulashing",
+            "purpose": "payoff",
+            "noteUz": "Asosiy fikr",
+        },
+        {
+            "startSec": 13,
+            "endSec": 15,
+            "visualUz": "Yuz / reaksiya + ekranda CTA matni",
             "overlayTextUz": "Bugun eng yoqimli lahza qaysi?",
             "purpose": "cta",
+            "noteUz": "Izohga chaqirish",
         },
     ]
+
+
+def _redistribute_timeline(shots: list[dict[str, Any]], duration_sec: int) -> list[dict[str, Any]]:
+    n = max(len(shots), 1)
+    duration_sec = max(duration_sec, n * 2)
+    step = duration_sec / n
+    for i, shot in enumerate(shots):
+        start = int(round(i * step))
+        end = int(round((i + 1) * step)) if i < n - 1 else duration_sec
+        if end <= start:
+            end = start + 2
+        shot["startSec"] = start
+        shot["endSec"] = end
+    shots[-1]["endSec"] = duration_sec
+    return shots
+
+
+def coerce_timed_shots(result: dict[str, Any], *, duration_sec: int = DEFAULT_DURATION_SEC) -> list[dict[str, Any]]:
+    """Normalize to 6–8 timed shots across durationSec. Accepts objects or legacy strings."""
+    defaults = default_montage_shots()
     raw = result.get("shots")
     out: list[dict[str, Any]] = []
+
     if isinstance(raw, list) and raw:
-        for i, item in enumerate(raw[:3]):
-            base = dict(defaults[i])
+        for i, item in enumerate(raw[:MAX_SHOTS]):
+            base = dict(defaults[min(i, len(defaults) - 1)])
             if isinstance(item, dict):
-                visual = str(item.get("visualUz") or item.get("visual") or "").strip()
-                overlay = str(
-                    item.get("overlayTextUz") or item.get("overlay") or item.get("text") or ""
-                ).strip()
+                visual = polish_uzbek_text(str(item.get("visualUz") or item.get("visual") or ""), max_words=16)
+                overlay = polish_uzbek_text(
+                    str(item.get("overlayTextUz") or item.get("overlay") or item.get("text") or ""),
+                    max_words=9,
+                )
+                note = polish_uzbek_text(str(item.get("noteUz") or item.get("note") or ""), max_words=8)
                 purpose = str(item.get("purpose") or base["purpose"]).strip().lower()
-                if purpose not in ("hook", "body", "cta"):
+                if purpose not in _ALLOWED_PURPOSES:
                     purpose = base["purpose"]
                 if visual:
                     base["visualUz"] = visual
                 if overlay:
-                    words = overlay.split()
-                    base["overlayTextUz"] = " ".join(words[:10])
+                    base["overlayTextUz"] = overlay
+                if note:
+                    base["noteUz"] = note
                 base["purpose"] = purpose
                 base["startSec"] = _as_int(item.get("startSec"), base["startSec"])
                 base["endSec"] = _as_int(item.get("endSec"), base["endSec"])
             elif isinstance(item, str) and item.strip():
-                base["visualUz"] = item.strip()[:160]
+                base["visualUz"] = polish_uzbek_text(item, max_words=16)[:160]
             out.append(base)
     else:
         legacy = as_str_list(result.get("shotListUz"))
-        for i, line in enumerate(legacy[:3]):
-            base = dict(defaults[i])
-            base["visualUz"] = line[:160]
+        for i, line in enumerate(legacy[:MAX_SHOTS]):
+            base = dict(defaults[min(i, len(defaults) - 1)])
+            base["visualUz"] = polish_uzbek_text(line, max_words=16)[:160]
             out.append(base)
 
-    while len(out) < 3:
-        out.append(dict(defaults[len(out)]))
+    while len(out) < MIN_SHOTS:
+        out.append(dict(defaults[len(out) % len(defaults)]))
+    out = out[:MAX_SHOTS]
 
-    # Force clean 9s timeline + replace gibberish / duplicated visuals.
-    visuals = [str(s.get("visualUz") or "").strip().lower() for s in out[:3]]
-    all_same_visual = len(set(visuals)) == 1 and bool(visuals[0])
-    for i, shot in enumerate(out[:3]):
-        shot["startSec"] = i * 3
-        shot["endSec"] = (i + 1) * 3
-        shot["purpose"] = defaults[i]["purpose"]
-        if looks_like_gibberish_uz(str(shot.get("overlayTextUz") or "")):
-            shot["overlayTextUz"] = defaults[i]["overlayTextUz"]
-        if looks_like_gibberish_uz(str(shot.get("visualUz") or "")) or (all_same_visual and i > 0):
-            shot["visualUz"] = defaults[i]["visualUz"]
-    return out[:3]
+    # First/last purposes fixed; fill middle roles if missing variety.
+    purpose_ladder = ["hook", "setup", "detail", "emotion", "payoff", "cta", "body", "transition"]
+    for i, shot in enumerate(out):
+        if i == 0:
+            shot["purpose"] = "hook"
+        elif i == len(out) - 1:
+            shot["purpose"] = "cta"
+        elif shot.get("purpose") in ("hook", "cta"):
+            shot["purpose"] = purpose_ladder[min(i, len(purpose_ladder) - 1)]
+
+    visuals = [str(s.get("visualUz") or "").strip().lower() for s in out]
+    seen: set[str] = set()
+    for i, shot in enumerate(out):
+        visual = str(shot.get("visualUz") or "").strip()
+        overlay = str(shot.get("overlayTextUz") or "").strip()
+        note = str(shot.get("noteUz") or "").strip()
+        key = visual.lower()
+        if (
+            looks_like_gibberish_uz(visual)
+            or not visual
+            or len(visual) < 8
+            or (key in seen)
+            or (len(set(v for v in visuals if len(v) >= 8)) <= 1 and i > 0)
+        ):
+            shot["visualUz"] = defaults[min(i, len(defaults) - 1)]["visualUz"]
+        else:
+            shot["visualUz"] = polish_uzbek_text(visual, max_words=16)
+        seen.add(str(shot["visualUz"]).lower())
+
+        if looks_like_gibberish_uz(overlay) or not overlay or len(overlay.split()) < 2:
+            shot["overlayTextUz"] = defaults[min(i, len(defaults) - 1)]["overlayTextUz"]
+        else:
+            shot["overlayTextUz"] = polish_uzbek_text(overlay, max_words=9)
+
+        if not note or looks_like_gibberish_uz(note):
+            shot["noteUz"] = defaults[min(i, len(defaults) - 1)].get("noteUz", shot["purpose"])
+        else:
+            shot["noteUz"] = polish_uzbek_text(note, max_words=8)
+
+    return _redistribute_timeline(out, duration_sec)
 
 
 def scenario_quality_issues(result: dict[str, Any] | None) -> list[str]:
@@ -313,13 +483,13 @@ def scenario_quality_issues(result: dict[str, Any] | None) -> list[str]:
         issues.append("cta_gibberish")
 
     shots = result.get("shots")
-    if not isinstance(shots, list) or len(shots) < 3:
-        # legacy fallback still counted via shotListUz during normalize
-        if len(as_str_list(result.get("shotListUz"))) < 2:
+    if not isinstance(shots, list) or len(shots) < MIN_SHOTS:
+        if len(as_str_list(result.get("shotListUz"))) < MIN_SHOTS:
             issues.append("few_shots")
     else:
         overlays: list[str] = []
-        for i, shot in enumerate(shots[:3]):
+        visuals: list[str] = []
+        for i, shot in enumerate(shots[:MAX_SHOTS]):
             if not isinstance(shot, dict):
                 issues.append(f"shot_{i}_invalid")
                 continue
@@ -329,6 +499,8 @@ def scenario_quality_issues(result: dict[str, Any] | None) -> list[str]:
                 issues.append(f"shot_{i}_no_visual")
             elif looks_like_gibberish_uz(visual):
                 issues.append(f"shot_{i}_visual_gibberish")
+            else:
+                visuals.append(visual.lower())
             if not overlay:
                 issues.append(f"shot_{i}_no_overlay")
             elif len(overlay.split()) > 12:
@@ -339,6 +511,8 @@ def scenario_quality_issues(result: dict[str, Any] | None) -> list[str]:
                 overlays.append(overlay.lower())
         if len(overlays) >= 2 and has_cross_field_repetition(overlays):
             issues.append("overlay_repetition")
+        if len(visuals) >= 3 and len(set(visuals)) == 1:
+            issues.append("duplicate_visuals")
 
     if isinstance(hook, str) and isinstance(caption, str) and isinstance(cta, str):
         text_fields = [hook.strip().lower(), caption.strip().lower(), cta.strip().lower()]
@@ -364,7 +538,7 @@ def is_minimal_scenario(result: dict[str, Any] | None) -> bool:
     title = result.get("titleUz")
     caption = result.get("captionPrimaryUz")
     shots = result.get("shots")
-    has_shots = isinstance(shots, list) and len(shots) >= 2
+    has_shots = isinstance(shots, list) and len(shots) >= 4
     return (
         isinstance(title, str)
         and bool(title.strip())
@@ -412,9 +586,14 @@ def normalize_scenario(
     brief: str,
     preferred_format: str | None,
 ) -> dict[str, Any]:
-    result["schemaVersion"] = "1.3"
+    result["schemaVersion"] = "1.4"
     result["aspectRatio"] = "9:16"
-    result["durationSec"] = 9
+    duration = _as_int(result.get("durationSec"), DEFAULT_DURATION_SEC)
+    if duration < 12:
+        duration = DEFAULT_DURATION_SEC
+    if duration > 20:
+        duration = 18
+    result["durationSec"] = duration
 
     fmt = str(result.get("format") or preferred_format or "REELS").upper()
     if fmt not in ("REELS", "STORY", "IMAGE", "CAROUSEL"):
@@ -430,59 +609,97 @@ def normalize_scenario(
     result["format"] = fmt
 
     if brief:
-        title = str(result.get("titleUz") or "")
+        title = polish_uzbek_text(str(result.get("titleUz") or ""), max_words=12)
         if looks_like_latin_topic_echo(title) or looks_like_gibberish_uz(title):
             result["titleUz"] = brief[:90]
-        goal = str(result.get("goalUz") or "").strip()
+        else:
+            result["titleUz"] = title or brief[:90]
+        goal = polish_uzbek_text(str(result.get("goalUz") or ""), max_words=20)
         if not goal or looks_like_latin_topic_echo(goal) or looks_like_gibberish_uz(goal):
-            result["goalUz"] = brief[:200]
+            result["goalUz"] = f"{brief[:160].rstrip('.')} — auditoriyani jalb qilish"
+        else:
+            result["goalUz"] = goal
 
-    mood = str(result.get("musicMoodUz") or "").strip()
+    mood = polish_uzbek_text(str(result.get("musicMoodUz") or ""), max_words=8)
     if not mood or looks_like_gibberish_uz(mood):
         result["musicMoodUz"] = "Sekin akustik yoki iliq lo-fi"
     else:
-        result["musicMoodUz"] = " ".join(mood.split()[:8])
+        result["musicMoodUz"] = mood
 
     for key in ("hashtagsUz", "risksUz", "postingTipsUz", "captionAlternativesUz"):
         result[key] = as_str_list(result.get(key))
 
-    shots = coerce_timed_shots(result)
+    shots = coerce_timed_shots(result, duration_sec=duration)
     result["shots"] = shots
+    result["durationSec"] = int(shots[-1]["endSec"]) if shots else duration
     # Legacy string list for older UI/clients.
     result["shotListUz"] = [
         f"{s['startSec']}-{s['endSec']}s · {s['visualUz']} · «{s['overlayTextUz']}»" for s in shots
     ]
 
-    hook = str(result.get("hookUz") or shots[0].get("overlayTextUz") or "").strip()
-    if not hook or looks_like_gibberish_uz(hook) or len(hook.split()) > 10:
+    hook = polish_uzbek_text(
+        str(result.get("hookUz") or shots[0].get("overlayTextUz") or ""),
+        max_words=9,
+    )
+    if not hook or looks_like_gibberish_uz(hook):
         hook = str(shots[0].get("overlayTextUz") or "Diqqat — keyingi lahza muhim")
-    result["hookUz"] = " ".join(hook.split()[:10])
+    result["hookUz"] = hook
 
-    caption = str(result.get("captionPrimaryUz") or "").strip()
-    if not caption or looks_like_gibberish_uz(caption) or len(caption) < 20:
-        result["captionPrimaryUz"] = (
-            "Haqiqiy iliqlik oddiy daqiqalarda yashaydi. "
-            "O‘zingizga mehr ulashishni unutmang."
-        )
+    caption = polish_uzbek_text(str(result.get("captionPrimaryUz") or ""), max_words=40)
+    caption_is_cta_like = bool(caption) and len(caption.split()) <= 6 and any(
+        w in caption.lower() for w in ("izoh", "yozing", "like", "comment", "saqlang")
+    )
+    if (
+        not caption
+        or looks_like_gibberish_uz(caption)
+        or len(caption) < 24
+        or caption_is_cta_like
+    ):
         if brief and len(brief) > 8:
-            result["captionPrimaryUz"] = f"{brief.strip()[:120].rstrip('.')} — shu kayfiyatda yangi post."
+            result["captionPrimaryUz"] = (
+                f"{brief.strip()[:100].rstrip('.')}. "
+                "Haqiqiy iliqlik oddiy daqiqalarda yashaydi. "
+                "O'zingizga mehr ulashishni unutmang."
+            )
+        else:
+            result["captionPrimaryUz"] = (
+                "Haqiqiy iliqlik va go'zallik yonimizdagi oddiy daqiqalarda bo'ladi. "
+                "O'zingizga mehr ulashishni unutmang."
+            )
+    else:
+        result["captionPrimaryUz"] = caption
 
-    cta = str(result.get("ctaUz") or "").strip()
+    cta_raw = result.get("ctaUz")
+    if isinstance(cta_raw, list):
+        cta_raw = " ".join(str(x).strip() for x in cta_raw if x)
+    cta = polish_uzbek_text(str(cta_raw or ""), max_words=12)
     caption_now = str(result.get("captionPrimaryUz") or "")
     hook_now = str(result.get("hookUz") or "")
+    last_overlay = str(shots[-1].get("overlayTextUz") or "").strip()
+    ascii_ratio = sum(1 for ch in cta if ("A" <= ch <= "Z") or ("a" <= ch <= "z") or ch.isspace()) / max(
+        len(cta), 1
+    )
     if (
         not cta
         or looks_like_gibberish_uz(cta)
         or len(cta.split()) > 14
+        or ascii_ratio > 0.75
         or token_overlap_ratio(cta, caption_now) > 0.55
         or token_overlap_ratio(cta, hook_now) > 0.55
     ):
-        cta_overlay = str(shots[2].get("overlayTextUz") or "").strip()
         result["ctaUz"] = (
-            cta_overlay
-            if cta_overlay and not looks_like_gibberish_uz(cta_overlay)
-            else "Izohlarda o‘z fikringizni yozing"
+            last_overlay
+            if last_overlay and not looks_like_gibberish_uz(last_overlay)
+            else "Izohlarda o'z fikringizni yozing"
         )
+    else:
+        result["ctaUz"] = cta
+
+    why = polish_uzbek_text(str(result.get("whyThisWorksUz") or ""), max_words=28)
+    if why and not looks_like_gibberish_uz(why):
+        result["whyThisWorksUz"] = why
+    tips = [polish_uzbek_text(t, max_words=16) for t in as_str_list(result.get("postingTipsUz"))]
+    result["postingTipsUz"] = [t for t in tips if t and not looks_like_gibberish_uz(t)][:4]
 
     tags = as_str_list(result.get("hashtagsUz"))
     cleaned_tags: list[str] = []
@@ -492,7 +709,7 @@ def normalize_scenario(
         if len(t) > 2:
             cleaned_tags.append(t.lower())
     if not cleaned_tags:
-        cleaned_tags = ["#estetika", "#kunliklahzalar", "#reels"]
+        cleaned_tags = ["#estetika", "#muhabbat", "#baxt", "#kunliklahzalar"]
     result["hashtagsUz"] = cleaned_tags
     return result
 

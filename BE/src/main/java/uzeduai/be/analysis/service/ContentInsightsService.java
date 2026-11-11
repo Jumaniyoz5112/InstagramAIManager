@@ -475,11 +475,11 @@ public class ContentInsightsService {
             return false;
         }
         Object shots = result.get("shots");
-        if (shots instanceof List<?> list && list.size() >= 2) {
+        if (shots instanceof List<?> list && list.size() >= 5) {
             return true;
         }
         Object legacy = result.get("shotListUz");
-        return legacy instanceof List<?> legacyList && legacyList.size() >= 2;
+        return legacy instanceof List<?> legacyList && legacyList.size() >= 5;
     }
 
     private static int nz(Integer v) {

@@ -71,7 +71,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
 - Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, text **`qwen2.5:7b`** (instruct; RTX 4060 8GB; coder emas)
-- Scenario **1.3**: 9s / 9:16 timed `shots[]` (visualUz + overlayTextUz + purpose); Uzbek gibberish gate + normalize salvage; legacy `shotListUz` derived; Video Factory/MoviePy — yo‘q
+- Scenario **1.4**: 15s / 9:16 / **6–8 kadr** timed `shots[]` (visual + overlay + purpose + note); typo polish + gibberish gate; Video Factory/MoviePy — yo‘q
 - BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
 ### Instagram (M0/M1 BE+UI)
