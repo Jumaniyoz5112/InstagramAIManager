@@ -4,7 +4,7 @@
 
 **Oxirgi yangilanish:** 2026-11-11  
 **Mahsulot turi:** Multi-Tenant SaaS  
-**Joriy bosqich:** Auth/H2/H1 + M0/M1 Instagram + Publishing — **DONE**; **Content AI analysis Phase-1** — **DONE**; **Corpus Insights + Next-post Scenario Phase-2** — **DONE** (text model `qwen2.5-coder:7b`; Liquibase 008)  
+**Joriy bosqich:** Auth/H2/H1 + M0/M1 Instagram + Publishing — **DONE**; **Content AI analysis Phase-1** — **DONE**; **Corpus Insights + Next-post Scenario Phase-2** — **DONE** (text model `qwen2.5:7b` instruct; Liquibase 008)  
 **To‘xtatilgan:** Media Management CRUD (library edit/delete), Video Factory / multi-agent, Redis rewrite  
 **Keyingi (ruxsat bilan):** Platform Admin UI; async publish queue; FFmpeg keyframes  
 
@@ -65,10 +65,10 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - UI: kartada «Tahlilni ko‘rish» dialog — AI xulosa + tuzatish maydonlari
 - **Phase-2 Insights:** engagement score `likes+3×comments+2×shares+2×saves`; corpus = topN + lowN + ANALYZED mid; **bitta post kloni emas**
 - API: `GET/POST /api/v1/instagram/insights/*` (leaderboard, generate, latest, scenarios)
-- UI Instagram: Media | Chuqur tahlil tab — pattern + keyingi post ssenariya dialog
+- UI Instagram: Media | Chuqur tahlil tab — pattern; ssenariya alohida `/app/instagram/scenario` (INSTAGRAM page gate)
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
-- Local: Ollama + `ai-service` Python **3.11** (`qwen2.5vl:7b` + `qwen2.5-coder:7b`)
+- Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, text **`qwen2.5:7b`** (instruct; RTX 4060 8GB; coder emas)
 - BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
 ### Instagram (M0/M1 BE+UI)

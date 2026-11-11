@@ -180,6 +180,12 @@ export const EN = {
   'instagram.scenario_ready': 'Scenario ready',
   'instagram.scenario_failed': 'Could not create scenario',
   'instagram.scenario_view': 'View scenario',
+  'instagram.scenario_page_open': 'Scenario page',
+  'instagram.scenario_page_title': 'Post scenario',
+  'instagram.scenario_page_hint':
+    'A new next-post plan from deep-insight patterns — not a copy of one post.',
+  'instagram.scenario_need_insights': 'First extract patterns under Instagram → Deep insights.',
+  'instagram.scenario_empty': 'No scenario yet. Add a brief and generate.',
   'instagram.scenario_eyebrow': 'Next post',
   'instagram.scenario_brief': 'Short brief (optional)',
   'instagram.scenario_brief_ph': 'e.g. new product / holiday / Q&A…',

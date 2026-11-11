@@ -11,7 +11,7 @@ public class AiServiceProperties {
     private int connectTimeoutMs = 5_000;
     private int readTimeoutMs = 300_000;
     private String modelName = "qwen2.5vl:7b";
-    private String textModelName = "qwen2.5-coder:7b";
+    private String textModelName = "qwen2.5:7b";
     private String promptVersion = "1.1";
     private String insightsPromptVersion = "1.2";
     private String scenarioPromptVersion = "1.2";

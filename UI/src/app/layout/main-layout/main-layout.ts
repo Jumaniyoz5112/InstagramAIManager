@@ -89,6 +89,8 @@ export class MainLayout {
         return 'page.ACCESS';
       case 'instagram':
         return 'page.INSTAGRAM';
+      case 'scenario':
+        return 'instagram.scenario_page_title';
       case 'pending':
         return 'pending.title';
       default:

@@ -345,19 +345,13 @@
             >
               {{ generatingInsights() ? ('instagram.insights_working' | t) : ('instagram.insights_generate' | t) }}
             </button>
-            <button
-              type="button"
+            <a
               class="btn-ghost !px-2.5 !py-1.5 text-[11px]"
-              [disabled]="!insightReport() || insightReport()?.status !== 'READY' || generatingScenario()"
-              (click)="generateScenario()"
+              [routerLink]="['/app/instagram/scenario']"
+              [queryParams]="selectedAccountId() ? { accountId: selectedAccountId() } : {}"
             >
-              {{ generatingScenario() ? ('instagram.scenario_working' | t) : ('instagram.scenario_generate' | t) }}
-            </button>
-            @if (scenario()?.status === 'READY') {
-              <button type="button" class="btn-ghost !px-2.5 !py-1.5 text-[11px]" (click)="openScenarioDialog()">
-                {{ 'instagram.scenario_view' | t }}
-              </button>
-            }
+              {{ 'instagram.scenario_page_open' | t }}
+            </a>
           </div>
         }
       </div>
@@ -571,20 +565,6 @@
           } @else if (!loadingInsights()) {
             <p class="text-sm text-white/45">{{ 'instagram.insights_empty' | t }}</p>
           }
-
-          <div class="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-            <label class="text-[11px] font-bold uppercase tracking-wide text-white/45">
-              {{ 'instagram.scenario_brief' | t }}
-            </label>
-            <textarea
-              rows="2"
-              maxlength="1000"
-              class="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent-2/50"
-              [value]="scenarioBrief()"
-              (input)="scenarioBriefChange($event)"
-              [attr.placeholder]="'instagram.scenario_brief_ph' | t"
-            ></textarea>
-          </div>
         </div>
       </div>
       }
@@ -1039,123 +1019,6 @@
                   {{ 'instagram.analysis_save_feedback' | t }}
                 </button>
               </div>
-            }
-          }
-        </div>
-      </div>
-    </div>
-  }
-
-  @if (showScenarioDialog() && scenario(); as sc) {
-    <div
-      class="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
-      (click)="closeScenarioDialog()"
-    >
-      <div
-        class="surface-card flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border-white/12 sm:rounded-2xl"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3.5 sm:px-5">
-          <div class="min-w-0">
-            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">
-              {{ 'instagram.scenario_eyebrow' | t }}
-            </p>
-            <h3 class="mt-1 font-display text-lg font-semibold text-white">
-              {{ scenarioText('titleUz') || ('instagram.scenario_view' | t) }}
-            </h3>
-          </div>
-          <button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" (click)="closeScenarioDialog()">
-            {{ 'action.close' | t }}
-          </button>
-        </div>
-        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
-          @if (scenarioText('goalUz'); as goal) {
-            <p class="text-sm text-white/80">{{ goal }}</p>
-          }
-          @if (scenarioText('format'); as fmt) {
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-white/45">{{ fmt }}</p>
-          }
-          @if (scenarioText('hookUz'); as hook) {
-            <div class="rounded-xl border border-accent-2/25 bg-accent-2/10 p-3">
-              <p class="text-[10px] font-bold uppercase text-accent-2/80">{{ 'instagram.analysis_hook' | t }}</p>
-              <p class="mt-1 text-sm text-white/90">{{ hook }}</p>
-            </div>
-          }
-          @if (scenarioText('captionPrimaryUz'); as cap) {
-            <div>
-              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_caption' | t }}</p>
-              <p class="mt-1 whitespace-pre-wrap text-sm text-white/85">{{ cap }}</p>
-            </div>
-          }
-          @if (scenarioText('ctaUz'); as cta) {
-            <div>
-              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_cta' | t }}</p>
-              <p class="mt-1 text-sm text-white/85">{{ cta }}</p>
-            </div>
-          }
-          @if (scenarioList('captionAlternativesUz'); as alts) {
-            @if (alts.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_captions_alt' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                  @for (a of alts; track a) {
-                    <li class="whitespace-pre-wrap">{{ a }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
-          @if (scenarioText('visualDirectionUz'); as visual) {
-            <div>
-              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_visual' | t }}</p>
-              <p class="mt-1 text-sm text-white/80">{{ visual }}</p>
-            </div>
-          }
-          @if (scenarioList('shotListUz'); as shots) {
-            @if (shots.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_shots' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                  @for (s of shots; track s) {
-                    <li>{{ s }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
-          @if (scenarioText('whyThisWorksUz'); as why) {
-            <div>
-              <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_why' | t }}</p>
-              <p class="mt-1 text-xs text-white/55">{{ why }}</p>
-            </div>
-          }
-          @if (scenarioList('risksUz'); as risks) {
-            @if (risks.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.scenario_risks' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/70">
-                  @for (r of risks; track r) {
-                    <li>{{ r }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
-          @if (scenarioList('postingTipsUz'); as tips) {
-            @if (tips.length) {
-              <div>
-                <p class="text-[10px] font-bold uppercase text-white/40">{{ 'instagram.scenario_tips' | t }}</p>
-                <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/70">
-                  @for (tip of tips; track tip) {
-                    <li>{{ tip }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          }
-          @if (scenarioList('hashtagsUz'); as tags) {
-            @if (tags.length) {
-              <p class="text-sm text-accent-2/90">{{ tags.join(' ') }}</p>
             }
           }
         </div>

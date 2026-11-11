@@ -180,6 +180,12 @@ export const UZ = {
   'instagram.scenario_ready': 'Ssenariya tayyor',
   'instagram.scenario_failed': 'Ssenariyani yaratib bo‘lmadi',
   'instagram.scenario_view': 'Ssenariyani ko‘rish',
+  'instagram.scenario_page_open': 'Ssenariya sahifasi',
+  'instagram.scenario_page_title': 'Post ssenariysi',
+  'instagram.scenario_page_hint':
+    'Chuqur tahlil patternlari asosida keyingi post uchun yangi ssenariya — bitta post nusxasi emas.',
+  'instagram.scenario_need_insights': 'Avval Instagram → Chuqur tahlil’da pattern chiqaring.',
+  'instagram.scenario_empty': 'Hali ssenariya yo‘q. Brif yozib «Keyingi post ssenariysi» ni bosing.',
   'instagram.scenario_eyebrow': 'Keyingi post',
   'instagram.scenario_brief': 'Qisqa brif (ixtiyoriy)',
   'instagram.scenario_brief_ph': 'Masalan: yangi mahsulot / bayram / savol-javob…',

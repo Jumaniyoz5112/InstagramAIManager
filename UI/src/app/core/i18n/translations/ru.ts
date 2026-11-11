@@ -180,6 +180,12 @@ export const RU = {
   'instagram.scenario_ready': 'Сценарий готов',
   'instagram.scenario_failed': 'Не удалось создать сценарий',
   'instagram.scenario_view': 'Смотреть сценарий',
+  'instagram.scenario_page_open': 'Страница сценария',
+  'instagram.scenario_page_title': 'Сценарий поста',
+  'instagram.scenario_page_hint':
+    'Новый план следующего поста по паттернам глубокого анализа — не копия одного поста.',
+  'instagram.scenario_need_insights': 'Сначала получите паттерны в Instagram → Глубокий анализ.',
+  'instagram.scenario_empty': 'Сценария пока нет. Добавьте бриф и сгенерируйте.',
   'instagram.scenario_eyebrow': 'Следующий пост',
   'instagram.scenario_brief': 'Краткий бриф (опционально)',
   'instagram.scenario_brief_ph': 'Напр.: новый продукт / праздник / Q&A…',

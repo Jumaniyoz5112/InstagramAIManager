@@ -1,13 +1,12 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
   ContentAnalysis,
-  ContentScenario,
   InsightReport,
   InstagramAccount,
   InstagramMedia,
@@ -25,7 +24,7 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 
 @Component({
   selector: 'app-instagram',
-  imports: [AppIcon, TranslatePipe, DatePipe, DecimalPipe],
+  imports: [AppIcon, TranslatePipe, DatePipe, DecimalPipe, RouterLink],
   templateUrl: './instagram.html',
   styles: `
     :host {
@@ -122,10 +121,6 @@ export class InstagramPage implements OnInit, OnDestroy {
   protected readonly insightReport = signal<InsightReport | null>(null);
   protected readonly loadingInsights = signal(false);
   protected readonly generatingInsights = signal(false);
-  protected readonly scenario = signal<ContentScenario | null>(null);
-  protected readonly generatingScenario = signal(false);
-  protected readonly scenarioBrief = signal('');
-  protected readonly showScenarioDialog = signal(false);
 
   private analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -286,7 +281,6 @@ export class InstagramPage implements OnInit, OnDestroy {
     if (!accountId) {
       this.leaderboard.set([]);
       this.insightReport.set(null);
-      this.scenario.set(null);
       return;
     }
     this.loadingLeaderboard.set(true);
@@ -305,18 +299,9 @@ export class InstagramPage implements OnInit, OnDestroy {
       next: (report) => {
         this.insightReport.set(report);
         this.loadingInsights.set(false);
-        if (report.status === 'READY') {
-          this.api.latestScenario(report.id).subscribe({
-            next: (sc) => this.scenario.set(sc),
-            error: () => this.scenario.set(null)
-          });
-        } else {
-          this.scenario.set(null);
-        }
       },
       error: () => {
         this.insightReport.set(null);
-        this.scenario.set(null);
         this.loadingInsights.set(false);
       }
     });
@@ -333,7 +318,6 @@ export class InstagramPage implements OnInit, OnDestroy {
       next: (report) => {
         this.generatingInsights.set(false);
         this.insightReport.set(report);
-        this.scenario.set(null);
         this.notice.set(this.i18n.t('instagram.insights_ready'));
         this.loadInsightsPanel();
       },
@@ -342,44 +326,6 @@ export class InstagramPage implements OnInit, OnDestroy {
         this.error.set(translateApiError(this.i18n, err, 'instagram.insights_failed'));
       }
     });
-  }
-
-  protected scenarioBriefChange(event: Event): void {
-    this.scenarioBrief.set((event.target as HTMLTextAreaElement).value);
-  }
-
-  protected openScenarioDialog(): void {
-    this.showScenarioDialog.set(true);
-  }
-
-  protected closeScenarioDialog(): void {
-    this.showScenarioDialog.set(false);
-  }
-
-  protected generateScenario(): void {
-    const report = this.insightReport();
-    if (!report || report.status !== 'READY') {
-      this.error.set(this.i18n.t('instagram.insights_need_report'));
-      return;
-    }
-    this.generatingScenario.set(true);
-    this.error.set(null);
-    this.api
-      .generateScenario(report.id, {
-        brief: this.scenarioBrief().trim() || null
-      })
-      .subscribe({
-        next: (sc) => {
-          this.generatingScenario.set(false);
-          this.scenario.set(sc);
-          this.showScenarioDialog.set(true);
-          this.notice.set(this.i18n.t('instagram.scenario_ready'));
-        },
-        error: (err: unknown) => {
-          this.generatingScenario.set(false);
-          this.error.set(translateApiError(this.i18n, err, 'instagram.scenario_failed'));
-        }
-      });
   }
 
   protected insightList(key: string): string[] {
@@ -397,25 +343,6 @@ export class InstagramPage implements OnInit, OnDestroy {
       return null;
     }
     return String(value);
-  }
-
-  protected scenarioText(key: string): string | null {
-    const value = this.scenario()?.result?.[key];
-    if (value == null || value === '') {
-      return null;
-    }
-    if (Array.isArray(value)) {
-      return value.map(String).join('\n');
-    }
-    return String(value);
-  }
-
-  protected scenarioList(key: string): string[] {
-    const value = this.scenario()?.result?.[key];
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value.map(String).map((s) => s.trim()).filter(Boolean);
   }
 
   protected setMediaFilter(filter: MediaFilter): void {
