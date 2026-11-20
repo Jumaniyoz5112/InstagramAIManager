@@ -1,5 +1,6 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -7,11 +8,13 @@ import {
   ContentScenario,
   InsightReport,
   InstagramAccount,
-  InstagramService
+  InstagramService,
+  LeaderboardItem
 } from '../../core/services/instagram.service';
+import { AppIcon } from '../../shared/ui/icon';
 @Component({
   selector: 'app-instagram-scenario',
-  imports: [TranslatePipe, RouterLink],
+  imports: [TranslatePipe, DecimalPipe, AppIcon],
   templateUrl: './instagram-scenario.html',
   styles: `
     :host {
@@ -44,6 +47,13 @@ export class InstagramScenarioPage implements OnInit {
   protected readonly insightReport = signal<InsightReport | null>(null);
   protected readonly loadingInsights = signal(false);
   protected readonly scenario = signal<ContentScenario | null>(null);
+  protected readonly savedScenarios = signal<ContentScenario[]>([]);
+  protected readonly scenarioTab = signal<string>('new');
+  protected readonly pageTab = signal<'insights' | 'scenario'>('scenario');
+  protected readonly accountMenuOpen = signal(false);
+  protected readonly leaderboard = signal<LeaderboardItem[]>([]);
+  protected readonly loadingLeaderboard = signal(false);
+  protected readonly generatingInsights = signal(false);
   protected readonly generatingScenario = signal(false);
   protected readonly scenarioBrief = signal('');
   protected readonly copyingScenario = signal(false);
@@ -69,7 +79,17 @@ export class InstagramScenarioPage implements OnInit {
     this.loadAccounts();
   }
 
+  protected setPageTab(tab: 'insights' | 'scenario'): void {
+    this.pageTab.set(tab);
+    this.accountMenuOpen.set(false);
+  }
+
+  protected toggleAccountMenu(): void {
+    this.accountMenuOpen.update((open) => !open);
+  }
+
   protected selectAccount(accountId: string): void {
+    this.accountMenuOpen.set(false);
     this.selectedAccountId.set(accountId);
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -125,6 +145,10 @@ export class InstagramScenarioPage implements OnInit {
         next: (sc) => {
           this.generatingScenario.set(false);
           this.scenario.set(sc);
+          if (sc.status === 'READY') {
+            this.savedScenarios.update((list) => [sc, ...list.filter((item) => item.id !== sc.id)]);
+            this.scenarioTab.set(sc.id);
+          }
           this.notice.set(this.i18n.t('instagram.scenario_ready'));
         },
         error: (err: unknown) => {
@@ -180,6 +204,39 @@ export class InstagramScenarioPage implements OnInit {
         };
       })
       .filter((s) => s.visualUz || s.overlayTextUz);
+  }
+
+  protected generateInsights(): void {
+    const accountId = this.selectedAccountId();
+    if (!accountId) {
+      return;
+    }
+    this.generatingInsights.set(true);
+    this.error.set(null);
+    this.api.generateInsights(accountId).subscribe({
+      next: (report) => {
+        this.generatingInsights.set(false);
+        this.insightReport.set(report);
+        this.notice.set(this.i18n.t('instagram.insights_ready'));
+        this.loadLeaderboard(accountId);
+      },
+      error: (err: unknown) => {
+        this.generatingInsights.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_failed'));
+      }
+    });
+  }
+
+  protected insightList(key: string): string[] {
+    const value = this.insightReport()?.result?.[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map(String).map((s) => s.trim()).filter(Boolean);
+  }
+
+  protected metricValue(value: number | null | undefined): string {
+    return value == null ? '—' : String(value);
   }
 
   protected insightText(key: string): string | null {
@@ -302,31 +359,102 @@ export class InstagramScenarioPage implements OnInit {
     });
   }
 
+  protected openNew(): void {
+    this.pageTab.set('scenario');
+    this.scenarioTab.set('new');
+    this.scenario.set(null);
+    this.error.set(null);
+  }
+
+  protected openSaved(item: ContentScenario): void {
+    this.pageTab.set('scenario');
+    this.scenarioTab.set(item.id);
+    this.scenario.set(item);
+    this.scenarioBrief.set(item.brief ?? '');
+    this.error.set(null);
+  }
+
+  protected savedTitle(item: ContentScenario): string {
+    const title = item.result?.['titleUz'];
+    if (typeof title === 'string' && title.trim()) {
+      return title.trim();
+    }
+    return item.brief?.trim() || this.i18n.t('instagram.scenario_page_title');
+  }
+
+  private loadSavedScenarios(reportId: string | null): void {
+    const accountId = this.selectedAccountId();
+    if (!accountId) {
+      this.savedScenarios.set([]);
+      this.scenario.set(null);
+      return;
+    }
+    this.api.listScenarios(accountId).subscribe({
+      next: (items) => {
+        this.savedScenarios.set(items);
+        const current = this.scenario();
+        const stillThere = current && items.some((item) => item.id === current.id) && this.scenarioTab() === current.id;
+        if (stillThere) {
+          return;
+        }
+        const forReport = reportId ? items.find((item) => item.insightReportId === reportId) : undefined;
+        const pick = forReport ?? items[0] ?? null;
+        this.scenario.set(pick);
+        this.scenarioTab.set(pick?.id ?? 'new');
+      },
+      error: () => {
+        this.savedScenarios.set([]);
+        if (reportId) {
+          this.api.latestScenario(reportId).subscribe({
+            next: (sc) => {
+              this.scenario.set(sc);
+              this.scenarioTab.set(sc.status === 'READY' ? sc.id : 'new');
+            },
+            error: () => {
+              this.scenario.set(null);
+              this.scenarioTab.set('new');
+            }
+          });
+        }
+      }
+    });
+  }
+
+  private loadLeaderboard(accountId: string): void {
+    this.loadingLeaderboard.set(true);
+    this.api.leaderboard(accountId, 20).subscribe({
+      next: (items) => {
+        this.leaderboard.set(items);
+        this.loadingLeaderboard.set(false);
+      },
+      error: (err: unknown) => {
+        this.loadingLeaderboard.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_load_failed'));
+      }
+    });
+  }
+
   private loadInsightsAndScenario(): void {
     const accountId = this.selectedAccountId();
     if (!accountId) {
       this.insightReport.set(null);
+      this.leaderboard.set([]);
       this.scenario.set(null);
+      this.savedScenarios.set([]);
       return;
     }
+    this.loadLeaderboard(accountId);
     this.loadingInsights.set(true);
     this.api.latestInsights(accountId).subscribe({
       next: (report) => {
         this.insightReport.set(report);
         this.loadingInsights.set(false);
-        if (report.status === 'READY') {
-          this.api.latestScenario(report.id).subscribe({
-            next: (sc) => this.scenario.set(sc),
-            error: () => this.scenario.set(null)
-          });
-        } else {
-          this.scenario.set(null);
-        }
+        this.loadSavedScenarios(report.status === 'READY' ? report.id : null);
       },
       error: () => {
         this.insightReport.set(null);
-        this.scenario.set(null);
         this.loadingInsights.set(false);
+        this.loadSavedScenarios(null);
       }
     });
   }

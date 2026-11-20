@@ -62,6 +62,15 @@ public class InsightsController {
         return ResponseEntity.ok(ApiResponse.ok(insightsService.latestInsights(accountId, principal)));
     }
 
+    @GetMapping("/scenarios")
+    public ResponseEntity<ApiResponse<List<ScenarioResponse>>> listScenarios(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @RequestParam UUID accountId
+    ) {
+        accessService.requirePage(principal, "INSTAGRAM");
+        return ResponseEntity.ok(ApiResponse.ok(insightsService.listScenarios(accountId, principal)));
+    }
+
     @PostMapping("/{reportId}/scenarios")
     public ResponseEntity<ApiResponse<ScenarioResponse>> generateScenario(
             @AuthenticationPrincipal CustomUserDetails principal,

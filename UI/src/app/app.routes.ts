@@ -70,13 +70,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/access/access').then((m) => m.AccessPage)
       },
       {
-        path: 'instagram/scenario',
+        path: 'scenario',
         canActivate: [pageGuard('INSTAGRAM')],
         loadComponent: () =>
           import('./features/instagram-scenario/instagram-scenario').then(
             (m) => m.InstagramScenarioPage
           )
       },
+      { path: 'instagram/scenario', redirectTo: '/app/scenario' },
       {
         path: 'instagram',
         canActivate: [pageGuard('INSTAGRAM')],

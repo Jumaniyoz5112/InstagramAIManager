@@ -14,6 +14,7 @@ export const EN = {
   'nav.no_tenant': 'No tenant',
   'nav.no_workspace': 'No workspace selected',
   'nav.menu': 'Menu',
+  'nav.scenario': 'Scenario',
   'nav.close_menu': 'Close menu',
 
   'page.DASHBOARD': 'Dashboard',
@@ -190,6 +191,9 @@ export const EN = {
     'Full 15s Reels/Story edit: 6–8 shots, clean copy, on-screen text, and caption.',
   'instagram.scenario_need_insights': 'First extract patterns under Instagram → Deep insights.',
   'instagram.scenario_empty': 'No scenario yet. Add a brief and generate.',
+  'instagram.scenario_saved': 'Saved',
+  'instagram.scenario_new': 'New',
+  'instagram.account_switch': 'Switch account',
   'instagram.scenario_eyebrow': 'Next post',
   'instagram.scenario_brief': 'Short brief (optional)',
   'instagram.scenario_brief_ph': 'e.g. new product / holiday / Q&A…',

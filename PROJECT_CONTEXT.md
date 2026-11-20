@@ -2,7 +2,7 @@
 
 > Loyihaning asosiy texnik konteksti. Cursor va inson bir xil arxitektura bo‘yicha ishlashi shart.
 
-**Oxirgi yangilanish:** 2026-11-11  
+**Oxirgi yangilanish:** 2026-11-20  
 **Mahsulot turi:** Multi-Tenant SaaS  
 **Joriy bosqich:** Auth/H2/H1 + M0/M1 Instagram + Publishing — **DONE**; **Content AI analysis Phase-1** — **DONE**; **Corpus Insights + Next-post Scenario Phase-2** — **DONE** (text model `qwen2.5:7b` instruct; Liquibase 008)  
 **To‘xtatilgan:** Media Management CRUD (library edit/delete), Video Factory / multi-agent, Redis rewrite  
@@ -55,7 +55,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ### Content AI analysis (Phase-1)
 
-- Model: **Ollama `qwen2.5vl:7b`** (vision) + **`qwen2.5:7b`** (text); **ketma-ket**, parallel yo‘q (8GB VRAM)
+- Model: **Ollama `qwen2.5vl:7b`** (vision) + **`qwen2.5:7b`** (insights); ssenariya matni **Groq `qwen/qwen3.8-27b`** (`GROQ_API_KEY` bo‘lsa), aks holda lokal `qwen2.5:7b`. Parallel yo‘q (8GB VRAM)
 - `ai-service`: global Ollama lock; uvicorn `--workers 1`; `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`
 - BE: `AiAnalysisClient` ReentrantLock (analyze/insights/scenario); `max-concurrent=1`, `queue-batch-size=1`
 - `ai-service` FastAPI (modullar: `prompts/`, `services/`, `schemas`, `config`; `main.py` faqat route): `GET /health`, `POST /analyze` (vision), `POST /insights` + `POST /scenario` (text)
@@ -67,10 +67,10 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - UI: kartada «Tahlilni ko‘rish» dialog — AI xulosa + tuzatish maydonlari
 - **Phase-2 Insights:** engagement score `likes+3×comments+2×shares+2×saves`; corpus = topN + lowN + ANALYZED mid; **bitta post kloni emas**
 - API: `GET/POST /api/v1/instagram/insights/*` (leaderboard, generate, latest, scenarios)
-- UI Instagram: Media | Chuqur tahlil tab — pattern; ssenariya alohida `/app/instagram/scenario` (INSTAGRAM page gate)
+- UI: Instagram — postlar. Chuqur tahlil Senari sahifasida: tab **Chuqur tahlil | Senari**. Chapda saqlangan ssenariylar, o‘ngda hisob almashtirish. `GET /insights/scenarios?accountId` (ruxsat INSTAGRAM)
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
-- Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, text **`qwen2.5:7b`** (instruct; RTX 4060 8GB; coder emas)
+- Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, insights **`qwen2.5:7b`** (RTX 4060 8GB). Ssenariya: Groq Free `qwen/qwen3.8-27b`, kalit `ai-service/.env` (gitignored). `reasoning_effort=none`, JSON. Limit: 30/daq, 1 000/kun, 8K token/daq, 200K token/kun
 - Scenario **1.5.1**: BRIEF=mavzu; pack faqat fallback va **5+ rotating variant**; har so‘rovda yangi burchak; model on-topic matni saqlanadi; Video Factory — yo‘q
 - BE→ai-service: `AiAnalysisClient` Jackson JSON body (`SimpleClientHttpRequestFactory`; bo‘sh body 422 oldin)
 
@@ -95,7 +95,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - Sync enrich: Graph `like_count`/`comments_count`; insights `shares`/`saved` → DB; comments upsert (`instagram_media_comments`); insights/comments xato → null/skip, sync davom etadi
 - Liquibase: `005-…metrics-comments`, `006-…publish` (`instagram_publish_jobs` + `instagram_publish_assets`)
 - Scopes default: `…_basic,…_manage_insights,…_manage_comments,instagram_business_content_publish`
-- Sync: enqueue → scheduler; live verified: `@mashhura01_2009` ACTIVE, media synced
+- Sync: enqueue → scheduler; live verified 2026-11-20: `@mashhura01_2009` ACTIVE, 13 media. Token scopes: basic, comments, content_publish, messages — insights yo‘q, share/save skip
 - UI: filter ALL|IMAGE|VIDEO|CAROUSEL; HTML5 video; metrics; comments; **Post qo‘shish** panel; i18n uz/ru/en
 - Prod secrets: `JWT_SECRET` + `IG_TOKEN_ENCRYPTION_KEY` (dev crypto default rejected in prod)
 

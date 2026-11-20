@@ -223,33 +223,11 @@
       <div class="shrink-0 space-y-2.5 border-b border-white/10 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-3.5">
         <div class="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
-            <div class="inline-flex gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1">
-              <button
-                type="button"
-                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
-                [class.bg-white/12]="mainTab() === 'media'"
-                [class.text-white]="mainTab() === 'media'"
-                [class.text-white/45]="mainTab() !== 'media'"
-                (click)="setMainTab('media')"
-              >
-                {{ 'instagram.media' | t }}
-              </button>
-              <button
-                type="button"
-                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
-                [class.bg-white/12]="mainTab() === 'insights'"
-                [class.text-white]="mainTab() === 'insights'"
-                [class.text-white/45]="mainTab() !== 'insights'"
-                (click)="setMainTab('insights')"
-              >
-                {{ 'instagram.insights' | t }}
-              </button>
-            </div>
             @if (selectedAccount(); as acc) {
               <span class="truncate text-xs text-white/35 sm:text-sm">@{{ acc.username || acc.igUserId }}</span>
             }
           </div>
-          @if (mainTab() === 'media' && mediaTotalPages() > 1) {
+          @if (mediaTotalPages() > 1) {
             <div class="flex items-center gap-1.5 text-xs text-white/50">
               <button
                 type="button"
@@ -272,7 +250,6 @@
           }
         </div>
 
-        @if (mainTab() === 'media') {
         <div class="-mx-1 overflow-x-auto px-1">
           <div class="inline-flex min-w-full gap-1 rounded-xl border border-white/10 bg-ink-soft/70 p-1 sm:min-w-0 sm:flex-wrap">
             @for (f of mediaFilters; track f) {
@@ -333,30 +310,8 @@
             }
           </div>
         </div>
-        }
-        @if (mainTab() === 'insights') {
-          <p class="text-[11px] leading-relaxed text-white/40 sm:text-xs">{{ 'instagram.insights_hint' | t }}</p>
-          <div class="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              class="btn-primary !px-2.5 !py-1.5 text-[11px]"
-              [disabled]="generatingInsights() || !selectedAccountId()"
-              (click)="generateInsights()"
-            >
-              {{ generatingInsights() ? ('instagram.insights_working' | t) : ('instagram.insights_generate' | t) }}
-            </button>
-            <a
-              class="btn-ghost !px-2.5 !py-1.5 text-[11px]"
-              [routerLink]="['/app/instagram/scenario']"
-              [queryParams]="selectedAccountId() ? { accountId: selectedAccountId() } : {}"
-            >
-              {{ 'instagram.scenario_page_open' | t }}
-            </a>
-          </div>
-        }
       </div>
 
-      @if (mainTab() === 'media') {
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-3 md:p-4">
         @if (loadingMedia()) {
           <p class="py-16 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
@@ -466,108 +421,6 @@
           </div>
         }
       </div>
-      } @else {
-      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-4">
-        @if (loadingLeaderboard() || loadingInsights()) {
-          <p class="py-10 text-center text-sm text-white/45">{{ 'action.loading' | t }}</p>
-        }
-
-        <div class="space-y-2">
-          <h4 class="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
-            {{ 'instagram.leaderboard' | t }}
-          </h4>
-          @if (!leaderboard().length && !loadingLeaderboard()) {
-            <p class="rounded-xl border border-dashed border-white/10 px-3 py-8 text-center text-sm text-white/40">
-              {{ 'instagram.leaderboard_empty' | t }}
-            </p>
-          } @else {
-            <ul class="space-y-1.5">
-              @for (item of leaderboard(); track item.mediaId) {
-                <li class="rounded-xl border border-white/8 bg-ink-soft/40 px-3 py-2.5">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0">
-                      <p class="text-xs font-semibold text-white">
-                        #{{ item.rank }}
-                        <span class="ml-1 font-normal text-white/45">{{ item.bucket }}</span>
-                        · score {{ item.engagementScore | number: '1.0-0' }}
-                      </p>
-                      <p class="mt-0.5 line-clamp-2 text-sm text-white/75">
-                        {{ item.analysisSummary || item.captionPreview || ('instagram.no_caption' | t) }}
-                      </p>
-                      <p class="mt-1 text-[11px] tabular-nums text-white/40">
-                        ♥ {{ metricValue(item.likeCount) }} · 💬 {{ metricValue(item.commentsCount) }} · ↗
-                        {{ metricValue(item.sharesCount) }} · 🔖 {{ metricValue(item.savesCount) }}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-
-        <div class="space-y-2 rounded-xl border border-white/10 bg-ink-soft/30 p-3.5">
-          <h4 class="text-[11px] font-bold uppercase tracking-[0.12em] text-white/40">
-            {{ 'instagram.insights_patterns' | t }}
-          </h4>
-          @if (insightReport()?.status === 'FAILED') {
-            <p class="text-sm text-accent">{{ insightReport()?.errorMessage || ('instagram.insights_failed' | t) }}</p>
-          } @else if (insightText('executiveSummaryUz'); as summary) {
-            <p class="text-sm leading-relaxed text-white/85">{{ summary }}</p>
-            @if (insightList('winningPatterns'); as wins) {
-              @if (wins.length) {
-                <div class="mt-3">
-                  <p class="text-[10px] font-bold uppercase text-accent-2/80">{{ 'instagram.insights_winning' | t }}</p>
-                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                    @for (w of wins; track w) {
-                      <li>{{ w }}</li>
-                    }
-                  </ul>
-                </div>
-              }
-            }
-            @if (insightList('losingPatterns'); as loses) {
-              @if (loses.length) {
-                <div class="mt-3">
-                  <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.insights_losing' | t }}</p>
-                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                    @for (w of loses; track w) {
-                      <li>{{ w }}</li>
-                    }
-                  </ul>
-                </div>
-              }
-            }
-            @if (insightList('doNext'); as next) {
-              @if (next.length) {
-                <div class="mt-3">
-                  <p class="text-[10px] font-bold uppercase text-white/45">{{ 'instagram.insights_do_next' | t }}</p>
-                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                    @for (w of next; track w) {
-                      <li>{{ w }}</li>
-                    }
-                  </ul>
-                </div>
-              }
-            }
-            @if (insightList('avoidNext'); as avoid) {
-              @if (avoid.length) {
-                <div class="mt-3">
-                  <p class="text-[10px] font-bold uppercase text-accent/80">{{ 'instagram.insights_avoid' | t }}</p>
-                  <ul class="mt-1 list-disc space-y-1 pl-4 text-sm text-white/75">
-                    @for (w of avoid; track w) {
-                      <li>{{ w }}</li>
-                    }
-                  </ul>
-                </div>
-              }
-            }
-          } @else if (!loadingInsights()) {
-            <p class="text-sm text-white/45">{{ 'instagram.insights_empty' | t }}</p>
-          }
-        </div>
-      </div>
-      }
     </section>
   </div>
 

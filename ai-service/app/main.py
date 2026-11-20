@@ -8,9 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import OLLAMA_TEXT_MODEL, OLLAMA_VISION_MODEL
 from app.schemas import AnalyzeRequest, InsightsRequest, ScenarioRequest
 from app.services.analyze import run_analyze
+from app.services.groq import groq_configured
 from app.services.insights import run_insights
 from app.services.ollama import ollama_busy, ollama_reachable
-from app.services.scenario import run_scenario
+from app.services.scenario import run_scenario, scenario_model_name
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,6 +39,8 @@ def health():
         "busyModel": busy.get("model"),
         "visionModel": OLLAMA_VISION_MODEL,
         "textModel": OLLAMA_TEXT_MODEL,
+        "scenarioProvider": "groq" if groq_configured() else "ollama",
+        "scenarioModel": scenario_model_name(),
         "model": OLLAMA_VISION_MODEL,
     }
 
@@ -48,6 +51,8 @@ def root():
         "message": "InstagramAIManager AI Service",
         "visionModel": OLLAMA_VISION_MODEL,
         "textModel": OLLAMA_TEXT_MODEL,
+        "scenarioProvider": "groq" if groq_configured() else "ollama",
+        "scenarioModel": scenario_model_name(),
     }
 
 

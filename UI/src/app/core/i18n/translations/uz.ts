@@ -14,6 +14,7 @@ export const UZ = {
   'nav.no_tenant': 'Tenant yo‘q',
   'nav.no_workspace': 'Workspace tanlanmagan',
   'nav.menu': 'Menyu',
+  'nav.scenario': 'Senari',
   'nav.close_menu': 'Menyuni yopish',
 
   'page.DASHBOARD': 'Dashboard',
@@ -190,6 +191,9 @@ export const UZ = {
     '15 soniyalik to‘liq Reels/Story montaj: 6–8 kadr, toza o‘zbek matn, ekran yozuvi va caption.',
   'instagram.scenario_need_insights': 'Avval Instagram → Chuqur tahlil’da pattern chiqaring.',
   'instagram.scenario_empty': 'Hali ssenariya yo‘q. Brif yozib «Keyingi post ssenariysi» ni bosing.',
+  'instagram.scenario_saved': 'Saqlangan',
+  'instagram.scenario_new': 'Yangi',
+  'instagram.account_switch': 'Hisobni almashtirish',
   'instagram.scenario_eyebrow': 'Keyingi post',
   'instagram.scenario_brief': 'Qisqa brif (ixtiyoriy)',
   'instagram.scenario_brief_ph': 'Masalan: yangi mahsulot / bayram / savol-javob…',

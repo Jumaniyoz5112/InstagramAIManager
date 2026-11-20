@@ -10,6 +10,8 @@ export type AppIconName =
   | 'plus'
   | 'check'
   | 'instagram'
+  | 'scenario'
+  | 'switch'
   | 'menu'
   | 'close';
 
@@ -67,6 +69,17 @@ export type AppIconName =
           <rect x="3" y="3" width="18" height="18" rx="5" />
           <circle cx="12" cy="12" r="4" />
           <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        }
+        @case ('scenario') {
+          <path d="M8 4h8a2 2 0 0 1 2 2v14l-6-3-6 3V6a2 2 0 0 1 2-2z" />
+          <path d="M9 9h6" />
+          <path d="M9 13h6" />
+        }
+        @case ('switch') {
+          <path d="M16 3h5v5" />
+          <path d="M21 3l-7 7" />
+          <path d="M8 21H3v-5" />
+          <path d="M3 21l7-7" />
         }
         @case ('menu') {
           <path d="M4 7h16" />

@@ -338,7 +338,7 @@ def _in_lexicon(token: str) -> bool:
     return False
 
 
-def looks_like_gibberish_uz(text: str) -> bool:
+def looks_like_gibberish_uz(text: str, *, max_tokens: int = 18) -> bool:
     """Heuristic: invented compounds / MT word-salad in supposed Uzbek copy."""
     t = _canon_apostrophe(text).strip().lower()
     if not t:
@@ -349,8 +349,8 @@ def looks_like_gibberish_uz(text: str) -> bool:
     tokens = _raw_tokens(t)
     if not tokens:
         return True
-    # Overlay/copy should stay short and readable.
-    if len(tokens) > 18:
+    # Short on-screen copy stays tight. Captions are 2–3 sentences and need a higher cap.
+    if len(tokens) > max_tokens:
         return True
     weird = 0
     for tok in tokens:
@@ -925,7 +925,7 @@ def scenario_quality_issues(result: dict[str, Any] | None) -> list[str]:
         issues.append("missing_title")
     if not isinstance(caption, str) or len(caption.strip()) < 20:
         issues.append("weak_caption")
-    elif looks_like_gibberish_uz(caption):
+    elif looks_like_gibberish_uz(caption, max_tokens=45):
         issues.append("caption_gibberish")
     if not isinstance(hook, str) or not hook.strip():
         issues.append("missing_hook")

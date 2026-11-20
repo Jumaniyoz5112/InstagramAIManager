@@ -2,8 +2,11 @@ package uzeduai.be.analysis.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import uzeduai.be.analysis.client.AiAnalysisClient;
 import uzeduai.be.analysis.config.AiServiceProperties;
@@ -56,6 +59,7 @@ public class ContentInsightsService {
     private final ContentInsightReportRepository insightReportRepository;
     private final ContentScenarioRepository scenarioRepository;
     private final TenantMembershipService tenantMembershipService;
+    private final ContentInsightsService self;
 
     public ContentInsightsService(
             AiServiceProperties properties,
@@ -66,7 +70,8 @@ public class ContentInsightsService {
             ContentAnalysisResultRepository resultRepository,
             ContentInsightReportRepository insightReportRepository,
             ContentScenarioRepository scenarioRepository,
-            TenantMembershipService tenantMembershipService
+            TenantMembershipService tenantMembershipService,
+            @Lazy ContentInsightsService self
     ) {
         this.properties = properties;
         this.aiClient = aiClient;
@@ -77,6 +82,7 @@ public class ContentInsightsService {
         this.insightReportRepository = insightReportRepository;
         this.scenarioRepository = scenarioRepository;
         this.tenantMembershipService = tenantMembershipService;
+        this.self = self;
     }
 
     @Transactional(readOnly = true)
@@ -207,7 +213,7 @@ public class ContentInsightsService {
         scenario.setBrief(blankToNull(request != null ? request.brief() : null));
         scenario.setPromptVersion(properties.getScenarioPromptVersion());
         scenario.setModelName(properties.getTextModelName());
-        scenario = scenarioRepository.save(scenario);
+        scenario = self.persistScenario(scenario);
 
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -226,16 +232,36 @@ public class ContentInsightsService {
             scenario.setModelName(ai.model());
             scenario.setFinishedAt(Instant.now());
             scenario.setErrorMessage(null);
-            scenario = scenarioRepository.save(scenario);
+            scenario = self.persistScenario(scenario);
             return toScenarioResponse(scenario);
         } catch (Exception ex) {
             log.warn("Scenario generation failed: {}", ex.getMessage());
             scenario.setStatus(InsightJobStatus.FAILED);
             scenario.setErrorMessage(trim(ex.getMessage(), 1000));
             scenario.setFinishedAt(Instant.now());
-            scenarioRepository.save(scenario);
+            self.persistScenario(scenario);
             throw new ApiException(HttpStatus.BAD_GATEWAY, MessageKeys.SCENARIO_FAILED);
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ContentScenario persistScenario(ContentScenario scenario) {
+        return scenarioRepository.saveAndFlush(scenario);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScenarioResponse> listScenarios(UUID accountId, CustomUserDetails principal) {
+        InstagramAccount account = requireAccount(accountId, principal);
+        return scenarioRepository.findReadyForAccount(
+                        principal.getTenantId(),
+                        principal.getWorkspaceId(),
+                        account.getId(),
+                        InsightJobStatus.READY,
+                        PageRequest.of(0, 30)
+                )
+                .stream()
+                .map(this::toScenarioResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)

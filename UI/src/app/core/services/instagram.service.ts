@@ -358,6 +358,16 @@ export class InstagramService {
       .pipe(map((res) => res.data));
   }
 
+  listScenarios(accountId: string): Observable<ContentScenario[]> {
+    const params = new HttpParams().set('accountId', accountId);
+    return this.http
+      .get<ApiResponse<ContentScenario[]>>(`${this.baseUrl}/insights/scenarios`, {
+        params,
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data ?? []));
+  }
+
   latestScenario(reportId: string): Observable<ContentScenario> {
     return this.http
       .get<ApiResponse<ContentScenario>>(`${this.baseUrl}/insights/${reportId}/scenarios/latest`, {

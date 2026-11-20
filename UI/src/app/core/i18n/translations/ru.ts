@@ -14,6 +14,7 @@ export const RU = {
   'nav.no_tenant': 'Нет tenant',
   'nav.no_workspace': 'Workspace не выбран',
   'nav.menu': 'Меню',
+  'nav.scenario': 'Сценарий',
   'nav.close_menu': 'Закрыть меню',
 
   'page.DASHBOARD': 'Dashboard',
@@ -190,6 +191,9 @@ export const RU = {
     'Полный 15-сек. монтаж Reels/Story: 6–8 кадров, чистый текст, надписи и caption.',
   'instagram.scenario_need_insights': 'Сначала получите паттерны в Instagram → Глубокий анализ.',
   'instagram.scenario_empty': 'Сценария пока нет. Добавьте бриф и сгенерируйте.',
+  'instagram.scenario_saved': 'Сохранённые',
+  'instagram.scenario_new': 'Новый',
+  'instagram.account_switch': 'Сменить аккаунт',
   'instagram.scenario_eyebrow': 'Следующий пост',
   'instagram.scenario_brief': 'Краткий бриф (опционально)',
   'instagram.scenario_brief_ph': 'Напр.: новый продукт / праздник / Q&A…',

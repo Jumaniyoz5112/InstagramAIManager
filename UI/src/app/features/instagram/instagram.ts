@@ -1,19 +1,17 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
   ContentAnalysis,
-  InsightReport,
   InstagramAccount,
   InstagramMedia,
   InstagramMediaComment,
   InstagramMediaType,
   InstagramService,
-  LeaderboardItem,
   MediaAnalysisStatus,
   OauthPickCandidate,
   PublishType
@@ -24,7 +22,7 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 
 @Component({
   selector: 'app-instagram',
-  imports: [AppIcon, TranslatePipe, DatePipe, DecimalPipe, RouterLink],
+  imports: [AppIcon, TranslatePipe, DatePipe],
   templateUrl: './instagram.html',
   styles: `
     :host {
@@ -114,13 +112,6 @@ export class InstagramPage implements OnInit, OnDestroy {
   protected readonly oauthPickCandidates = signal<OauthPickCandidate[]>([]);
   protected readonly loadingOauthPick = signal(false);
   protected readonly confirmingOauthPick = signal(false);
-
-  protected readonly mainTab = signal<'media' | 'insights'>('media');
-  protected readonly leaderboard = signal<LeaderboardItem[]>([]);
-  protected readonly loadingLeaderboard = signal(false);
-  protected readonly insightReport = signal<InsightReport | null>(null);
-  protected readonly loadingInsights = signal(false);
-  protected readonly generatingInsights = signal(false);
 
   private analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -264,85 +255,6 @@ export class InstagramPage implements OnInit, OnDestroy {
     this.selectedMedia.set(null);
     this.clearAnalysisSelection();
     this.loadMedia(0);
-    if (this.mainTab() === 'insights') {
-      this.loadInsightsPanel();
-    }
-  }
-
-  protected setMainTab(tab: 'media' | 'insights'): void {
-    this.mainTab.set(tab);
-    if (tab === 'insights') {
-      this.loadInsightsPanel();
-    }
-  }
-
-  protected loadInsightsPanel(): void {
-    const accountId = this.selectedAccountId();
-    if (!accountId) {
-      this.leaderboard.set([]);
-      this.insightReport.set(null);
-      return;
-    }
-    this.loadingLeaderboard.set(true);
-    this.api.leaderboard(accountId, 20).subscribe({
-      next: (items) => {
-        this.leaderboard.set(items);
-        this.loadingLeaderboard.set(false);
-      },
-      error: (err: unknown) => {
-        this.loadingLeaderboard.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_load_failed'));
-      }
-    });
-    this.loadingInsights.set(true);
-    this.api.latestInsights(accountId).subscribe({
-      next: (report) => {
-        this.insightReport.set(report);
-        this.loadingInsights.set(false);
-      },
-      error: () => {
-        this.insightReport.set(null);
-        this.loadingInsights.set(false);
-      }
-    });
-  }
-
-  protected generateInsights(): void {
-    const accountId = this.selectedAccountId();
-    if (!accountId) {
-      return;
-    }
-    this.generatingInsights.set(true);
-    this.error.set(null);
-    this.api.generateInsights(accountId).subscribe({
-      next: (report) => {
-        this.generatingInsights.set(false);
-        this.insightReport.set(report);
-        this.notice.set(this.i18n.t('instagram.insights_ready'));
-        this.loadInsightsPanel();
-      },
-      error: (err: unknown) => {
-        this.generatingInsights.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.insights_failed'));
-      }
-    });
-  }
-
-  protected insightList(key: string): string[] {
-    const result = this.insightReport()?.result;
-    const value = result?.[key];
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value.map(String).map((s) => s.trim()).filter(Boolean);
-  }
-
-  protected insightText(key: string): string | null {
-    const value = this.insightReport()?.result?.[key];
-    if (value == null || value === '') {
-      return null;
-    }
-    return String(value);
   }
 
   protected setMediaFilter(filter: MediaFilter): void {

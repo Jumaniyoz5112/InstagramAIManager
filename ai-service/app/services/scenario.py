@@ -7,9 +7,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.config import OLLAMA_TEXT_MODEL, SCENARIO_PROMPT_VERSION
+from app.config import GROQ_TEXT_MODEL, OLLAMA_TEXT_MODEL, SCENARIO_PROMPT_VERSION
 from app.prompts import SCENARIO_SYSTEM
 from app.schemas import ScenarioRequest
+from app.services.groq import groq_configured, groq_json_chat
 from app.services.ollama import ollama_chat
 from app.services.quality import (
     extract_brief_topic,
@@ -24,6 +25,23 @@ from app.services.quality import (
 )
 
 log = logging.getLogger("ai-service.scenario")
+
+
+def scenario_model_name() -> str:
+    return GROQ_TEXT_MODEL if groq_configured() else OLLAMA_TEXT_MODEL
+
+
+def _scenario_chat(*, system: str, user_text: str, temperature: float, repeat_penalty: float) -> dict[str, Any]:
+    if groq_configured():
+        return groq_json_chat(system=system, user_text=user_text, temperature=temperature)
+    return ollama_chat(
+        model=OLLAMA_TEXT_MODEL,
+        system=system,
+        user_text=user_text,
+        images=None,
+        temperature=temperature,
+        repeat_penalty=repeat_penalty,
+    )
 
 _ANGLES = (
     "boshqa burchak / yangi misol",
@@ -94,11 +112,9 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
         f"STYLE INSIGHTS (mavzu emas):\n{json.dumps(style, ensure_ascii=False)}\n\n"
         "Faqat scenario schema 1.5 JSON."
     )
-    result = ollama_chat(
-        model=OLLAMA_TEXT_MODEL,
+    result = _scenario_chat(
         system=SCENARIO_SYSTEM,
         user_text=user_text,
-        images=None,
         temperature=0.75,
         repeat_penalty=1.22,
     )
@@ -106,7 +122,10 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
     result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
     issues = scenario_quality_issues(result)
     off_topic = bool(brief) and is_off_topic_for_brief(result, brief)
-    if issues or off_topic:
+    # Lexicon misses on a complete draft are not worth a second paid call.
+    # Groq Free allows 8K tokens/minute; an immediate retry returns 429 and the UI shows 502.
+    lexicon_only = bool(issues) and all(item.endswith("_gibberish") for item in issues)
+    if (issues or off_topic) and not (lexicon_only and is_minimal_scenario(result) and not off_topic):
         log.warning(
             "Scenario retry: issues=%s off_topic=%s topic=%s angle=%s",
             issues,
@@ -114,25 +133,32 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
             topic,
             angle,
         )
-        result = ollama_chat(
-            model=OLLAMA_TEXT_MODEL,
-            system=SCENARIO_SYSTEM,
-            user_text=(
-                "Oldingi javob NOTO‘G‘RI MAVZU yoki yaroqsiz edi.\n"
-                f"MAJBURIY MAVZU: {topic or brief}\n"
-                f"YANGI BURCHAK: {angle} — boshqa so‘zlar bilan yoz.\n"
-                "Baxt/qahva/mehr/estetika shablonini ISHLATMA.\n"
-                "6–8 kadr, har overlay shu mavzuda. titleUz qisqa mavzu nomi.\n"
-                f"Muammolar: {', '.join(issues) if issues else 'off_topic'}\n\n"
-                f"{brief_line}\n"
-                f"STYLE INSIGHTS:\n{json.dumps(style, ensure_ascii=False)}"
-            ),
-            images=None,
-            temperature=0.65,
-            repeat_penalty=1.28,
-        )
-        result["_variantSalt"] = f"{salt}-retry"
-        result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
+        first_draft = result
+        try:
+            result = _scenario_chat(
+                system=SCENARIO_SYSTEM,
+                user_text=(
+                    "Oldingi javob NOTO‘G‘RI MAVZU yoki yaroqsiz edi.\n"
+                    f"MAJBURIY MAVZU: {topic or brief}\n"
+                    f"YANGI BURCHAK: {angle} — boshqa so‘zlar bilan yoz.\n"
+                    "Baxt/qahva/mehr/estetika shablonini ISHLATMA.\n"
+                    "6–8 kadr, har overlay shu mavzuda. titleUz qisqa mavzu nomi.\n"
+                    f"Muammolar: {', '.join(issues) if issues else 'off_topic'}\n\n"
+                    f"{brief_line}\n"
+                    f"STYLE INSIGHTS:\n{json.dumps(style, ensure_ascii=False)}"
+                ),
+                temperature=0.65,
+                repeat_penalty=1.28,
+            )
+            result["_variantSalt"] = f"{salt}-retry"
+            result = normalize_scenario(result, brief=brief, preferred_format=req.preferredFormat)
+        except HTTPException as exc:
+            if exc.status_code == 429 and is_minimal_scenario(first_draft):
+                log.warning("Scenario retry hit rate limit; keeping first draft")
+                result = first_draft
+                result["_variantSalt"] = f"{salt}-rate-limit"
+            else:
+                raise
 
     if brief and is_off_topic_for_brief(result, brief):
         log.warning(
@@ -170,7 +196,7 @@ def run_scenario(req: ScenarioRequest) -> dict[str, Any]:
         result["variantAngleUz"] = angle
     return {
         "schemaVersion": "1.5",
-        "model": OLLAMA_TEXT_MODEL,
+        "model": scenario_model_name(),
         "promptVersion": SCENARIO_PROMPT_VERSION,
         "result": result,
     }
