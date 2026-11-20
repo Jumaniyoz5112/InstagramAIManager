@@ -62,6 +62,8 @@ public final class MessageKeys {
     public static final String SCENARIO_FAILED = "error.scenario.failed";
     public static final String SCENARIO_VIDEO_NOT_FOUND = "error.scenario.video_not_found";
     public static final String SCENARIO_VIDEO_FAILED = "error.scenario.video_failed";
+    public static final String SPEECH_FAILED = "error.speech.failed";
+    public static final String SPEECH_TEXT_REQUIRED = "error.speech.text_required";
 
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";

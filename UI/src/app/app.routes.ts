@@ -77,6 +77,11 @@ export const routes: Routes = [
             (m) => m.InstagramScenarioPage
           )
       },
+      {
+        path: 'voice',
+        canActivate: [pageGuard('INSTAGRAM')],
+        loadComponent: () => import('./features/voice/voice').then((m) => m.VoicePage)
+      },
       { path: 'instagram/scenario', redirectTo: '/app/scenario' },
       {
         path: 'instagram',

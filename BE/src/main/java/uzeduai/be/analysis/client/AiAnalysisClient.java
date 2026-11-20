@@ -143,6 +143,30 @@ public class AiAnalysisClient {
         }
     }
 
+    public byte[] speak(String text, String voice) {
+        try {
+            byte[] jsonBytes = objectMapper.writeValueAsBytes(Map.of("text", text, "voice", voice));
+            log.info("Speech synthesize start");
+            byte[] audio = restClient.post()
+                    .uri("/speech")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.parseMediaType("audio/wav"))
+                    .body(jsonBytes)
+                    .retrieve()
+                    .body(byte[].class);
+            if (audio == null || audio.length < 44) {
+                throw new IllegalStateException("speech returned empty audio");
+            }
+            return audio;
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalStateException("speech request failed", ex);
+        } finally {
+            log.info("Speech synthesize end");
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private AnalyzeResponse mapAiResponse(Map<String, Object> body, String defaultModel) {
         String schemaVersion = String.valueOf(body.getOrDefault("schemaVersion", "1.0"));

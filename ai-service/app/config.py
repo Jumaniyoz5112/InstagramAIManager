@@ -23,3 +23,6 @@ SCENARIO_PROMPT_VERSION = "1.5.1"
 
 MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
+
+# Local VITS weights. Ollama speech has no Uzbek voice.
+SPEECH_VOICE_ID = "uz-mms"

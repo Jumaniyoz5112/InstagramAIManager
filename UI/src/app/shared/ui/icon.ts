@@ -12,6 +12,7 @@ export type AppIconName =
   | 'instagram'
   | 'scenario'
   | 'switch'
+  | 'voice'
   | 'menu'
   | 'close';
 
@@ -80,6 +81,11 @@ export type AppIconName =
           <path d="M21 3l-7 7" />
           <path d="M8 21H3v-5" />
           <path d="M3 21l7-7" />
+        }
+        @case ('voice') {
+          <path d="M11 5 6 9H3v6h3l5 4V5z" />
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18 6a8.5 8.5 0 0 1 0 12" />
         }
         @case ('menu') {
           <path d="M4 7h16" />

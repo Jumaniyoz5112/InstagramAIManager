@@ -385,6 +385,14 @@ export class InstagramService {
       .pipe(map((res) => res.data));
   }
 
+  speak(text: string, voice = 'uz-mms'): Observable<Blob> {
+    return this.http.post(
+      `${this.baseUrl}/speech`,
+      { text, voice },
+      { responseType: 'blob', withCredentials: true }
+    );
+  }
+
   scenarioVideoFile(scenarioId: string): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/insights/scenarios/${scenarioId}/video/file`, {
       responseType: 'blob',

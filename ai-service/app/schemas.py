@@ -35,3 +35,8 @@ class ScenarioRequest(BaseModel):
     brief: str | None = None
     insights: dict[str, Any]
     preferredFormat: str | None = None
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    voice: str = "uz-mms"

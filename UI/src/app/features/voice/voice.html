@@ -1,0 +1,46 @@
+<section class="mx-auto flex w-full max-w-3xl flex-col gap-4">
+  <p class="text-sm text-white/55">{{ 'voice.hint' | t }}</p>
+
+  <div class="surface-card p-4 sm:p-6">
+    <p class="label">{{ 'voice.pick' | t }}</p>
+    <div class="flex flex-wrap gap-2">
+      @for (voice of voices; track voice.id) {
+        <button
+          type="button"
+          class="rounded-xl border px-3 py-2 text-sm font-semibold transition"
+          [class.border-accent-2]="selected() === voice.id"
+          [class.bg-accent-2/15]="selected() === voice.id"
+          [class.text-white]="selected() === voice.id"
+          [class.border-white/12]="selected() !== voice.id"
+          [class.text-white/70]="selected() !== voice.id"
+          (click)="selected.set(voice.id)"
+        >
+          {{ voice.labelKey | t }}
+        </button>
+      }
+    </div>
+
+    <label class="label mt-5" for="voice-text">{{ 'voice.text' | t }}</label>
+    <textarea
+      id="voice-text"
+      class="field min-h-32 resize-y"
+      [value]="text()"
+      [placeholder]="'voice.text_ph' | t"
+      (input)="text.set($any($event.target).value)"
+    ></textarea>
+
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="button" class="btn-primary" [disabled]="busy() || !text().trim()" (click)="speak()">
+        {{ (busy() ? 'voice.working' : 'voice.listen') | t }}
+      </button>
+    </div>
+
+    @if (error(); as err) {
+      <p class="mt-4 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">{{ err }}</p>
+    }
+
+    @if (audioUrl(); as url) {
+      <audio class="mt-4 w-full" [src]="url" controls autoplay></audio>
+    }
+  </div>
+</section>

@@ -91,6 +91,8 @@ export class MainLayout {
         return 'page.INSTAGRAM';
       case 'scenario':
         return 'instagram.scenario_page_title';
+      case 'voice':
+        return 'voice.title';
       case 'pending':
         return 'pending.title';
       default:

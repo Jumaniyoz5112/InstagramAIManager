@@ -1,5 +1,7 @@
 package uzeduai.be.analysis.video;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,76 +18,100 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Component
 public class ScenarioVideoRenderer {
 
+    private static final Logger log = LoggerFactory.getLogger(ScenarioVideoRenderer.class);
     private static final int WIDTH = 720;
     private static final int HEIGHT = 1280;
 
     private final String ffmpegPath;
+    private final ShotImageClient images;
 
-    public ScenarioVideoRenderer(@Value("${app.video.ffmpeg:}") String ffmpegPath) {
+    public ScenarioVideoRenderer(
+            @Value("${app.video.ffmpeg:}") String ffmpegPath,
+            ShotImageClient images
+    ) {
         this.ffmpegPath = ffmpegPath == null ? "" : ffmpegPath.trim();
+        this.images = images;
     }
 
     public RenderedClip render(Map<String, Object> scenario) throws IOException, InterruptedException {
         List<Card> cards = cards(scenario);
         Path work = Files.createTempDirectory("scenario-video-");
-        List<Path> frames = new ArrayList<>();
+        List<Path> parts = new ArrayList<>();
         for (int i = 0; i < cards.size(); i++) {
+            Card card = cards.get(i);
+            log.info("Scenario shot {} of {}", i + 1, cards.size());
+            BufferedImage photo = loadPhoto(card, i);
             Path png = work.resolve("shot-" + i + ".png");
-            ImageIO.write(draw(cards.get(i), i), "png", png.toFile());
-            frames.add(png);
+            ImageIO.write(compose(photo, card.overlay()), "png", png.toFile());
+            Path part = work.resolve("part-" + i + ".mp4");
+            encodeClip(png, card.seconds(), part);
+            parts.add(part);
         }
         Path mp4 = work.resolve("scenario.mp4");
-        encode(frames, cards, mp4);
+        concat(parts, mp4);
         double duration = cards.stream().mapToDouble(Card::seconds).sum();
         return new RenderedClip(mp4, duration, work);
     }
 
-    private void encode(List<Path> frames, List<Card> cards, Path output) throws IOException, InterruptedException {
-        List<String> command = new ArrayList<>();
-        command.add(ffmpeg().toString());
-        command.add("-y");
-        for (int i = 0; i < frames.size(); i++) {
-            command.add("-loop");
-            command.add("1");
-            command.add("-t");
-            command.add(String.format(Locale.US, "%.2f", cards.get(i).seconds()));
-            command.add("-i");
-            command.add(frames.get(i).toString());
+    private BufferedImage loadPhoto(Card card, int index) {
+        IllegalStateException last = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                return images.fetch(card.scene(), images.seedFor(card.scene(), index + attempt * 17));
+            } catch (IllegalStateException ex) {
+                last = ex;
+            }
         }
-        StringBuilder filter = new StringBuilder();
-        for (int i = 0; i < frames.size(); i++) {
-            filter.append('[').append(i).append(":v]scale=")
-                    .append(WIDTH).append(':').append(HEIGHT)
-                    .append(",setsar=1,fps=30[v").append(i).append("];");
-        }
-        for (int i = 0; i < frames.size(); i++) {
-            filter.append("[v").append(i).append(']');
-        }
-        filter.append("concat=n=").append(frames.size()).append(":v=1:a=0,format=yuv420p[v]");
-        command.add("-filter_complex");
-        command.add(filter.toString());
-        command.add("-map");
-        command.add("[v]");
-        command.add("-c:v");
-        command.add("libx264");
-        command.add("-pix_fmt");
-        command.add("yuv420p");
-        command.add("-movflags");
-        command.add("+faststart");
-        command.add(output.toString());
+        throw last == null ? new IllegalStateException("image API failed") : last;
+    }
 
+    private void encodeClip(Path png, double seconds, Path output) throws IOException, InterruptedException {
+        int frames = Math.max(36, (int) Math.round(seconds * 30));
+        String filter = "zoompan=z='min(zoom+0.0012,1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d="
+                + frames + ":s=" + WIDTH + "x" + HEIGHT + ":fps=30";
+        run(output, List.of(
+                ffmpeg().toString(), "-y",
+                "-loop", "1",
+                "-i", png.toString(),
+                "-vf", filter,
+                "-frames:v", Integer.toString(frames),
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-r", "30",
+                output.toString()
+        ), 90);
+    }
+
+    private void concat(List<Path> parts, Path output) throws IOException, InterruptedException {
+        Path list = output.resolveSibling("list.txt");
+        StringBuilder body = new StringBuilder();
+        for (Path part : parts) {
+            body.append("file '").append(part.toAbsolutePath().toString().replace('\\', '/')).append("'\n");
+        }
+        Files.writeString(list, body.toString(), StandardCharsets.UTF_8);
+        run(output, List.of(
+                ffmpeg().toString(), "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", list.toString(),
+                "-c", "copy",
+                "-movflags", "+faststart",
+                output.toString()
+        ), 60);
+    }
+
+    private static void run(Path output, List<String> command, int timeoutSec) throws IOException, InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.redirectErrorStream(true);
         Process process = builder.start();
         byte[] log = process.getInputStream().readAllBytes();
-        if (!process.waitFor(90, TimeUnit.SECONDS)) {
+        if (!process.waitFor(timeoutSec, TimeUnit.SECONDS)) {
             process.destroyForcibly();
             throw new IllegalStateException("ffmpeg timed out");
         }
@@ -116,11 +142,11 @@ public class ScenarioVideoRenderer {
         String title = text(scenario.get("titleUz"));
         String hook = text(scenario.get("hookUz"));
         if (!title.isBlank() || !hook.isBlank()) {
-            cards.add(new Card("HOOK", title.isBlank() ? "Story" : title, hook, "", 2.2));
+            String scene = (title + ". " + hook).trim();
+            cards.add(new Card(scene, hook.isBlank() ? title : hook, 2.4));
         }
         Object shots = scenario.get("shots");
         if (shots instanceof List<?> list) {
-            int index = 1;
             for (Object item : list) {
                 if (!(item instanceof Map<?, ?> raw)) {
                     continue;
@@ -131,57 +157,64 @@ public class ScenarioVideoRenderer {
                 String overlay = text(raw.get("overlayTextUz"));
                 String visual = text(raw.get("visualUz"));
                 String note = text(raw.get("noteUz"));
-                String purpose = text(raw.get("purpose"));
-                String headline = overlay.isBlank() ? visual : overlay;
-                String body = overlay.isBlank() ? note : visual;
-                cards.add(new Card(index + " · " + purpose.toUpperCase(Locale.ROOT), headline, body, note, seconds));
-                index++;
+                String scene = !visual.isBlank() ? visual : (!overlay.isBlank() ? overlay : note);
+                String caption = !overlay.isBlank() ? overlay : "";
+                if (!scene.isBlank()) {
+                    cards.add(new Card(scene, caption, seconds));
+                }
             }
         }
         if (cards.isEmpty()) {
             String caption = text(scenario.get("captionPrimaryUz"));
-            cards.add(new Card("STORY", title.isBlank() ? "Ssenariya" : title, caption, hook, 6));
+            cards.add(new Card(title.isBlank() ? caption : title, hook.isBlank() ? caption : hook, 6));
         }
         return cards;
     }
 
-    private static BufferedImage draw(Card card, int index) {
-        BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = image.createGraphics();
+    private static BufferedImage compose(BufferedImage source, String overlay) {
+        BufferedImage frame = cover(source);
+        if (overlay == null || overlay.isBlank()) {
+            return frame;
+        }
+        Graphics2D g = frame.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        Color[] backgrounds = {
-                new Color(0x0b1626),
-                new Color(0x102033),
-                new Color(0x12182b),
-                new Color(0x0e1c28)
-        };
-        g.setColor(backgrounds[index % backgrounds.length]);
-        g.fillRect(0, 0, WIDTH, HEIGHT);
-        g.setColor(new Color(0x00c2a8));
-        g.fillRect(0, 0, WIDTH, 14);
-
-        int y = 160;
-        g.setFont(uiFont(Font.BOLD, 22));
-        g.setColor(new Color(0x8ee8dc));
-        y = drawBlock(g, card.kicker().isBlank() ? "STORY" : card.kicker(), 64, y, WIDTH - 128, 28);
-
-        y += 36;
-        g.setFont(uiFont(Font.BOLD, 48));
+        int band = 280;
+        for (int i = 0; i < band; i++) {
+            int alpha = (int) (190 * (i / (double) band));
+            g.setColor(new Color(0, 0, 0, alpha));
+            g.drawLine(0, HEIGHT - band + i, WIDTH, HEIGHT - band + i);
+        }
+        g.setFont(uiFont(Font.BOLD, 34));
         g.setColor(Color.WHITE);
-        y = drawBlock(g, card.title().isBlank() ? " " : card.title(), 64, y, WIDTH - 128, 58);
-
-        y += 40;
-        g.setFont(uiFont(Font.PLAIN, 30));
-        g.setColor(new Color(0xd5deea));
-        drawBlock(g, card.body(), 64, y, WIDTH - 128, 40);
-
-        if (!card.footer().isBlank() && !card.footer().equals(card.body())) {
-            g.setFont(uiFont(Font.PLAIN, 24));
-            g.setColor(new Color(0x9aa8ba));
-            drawBlock(g, card.footer(), 64, 1040, WIDTH - 128, 34);
+        List<String> lines = wrap(overlay, g.getFontMetrics(), WIDTH - 96);
+        int shown = Math.min(3, lines.size());
+        int y = HEIGHT - 56 - (shown - 1) * 42;
+        for (int i = 0; i < shown; i++) {
+            String line = lines.get(i);
+            int x = Math.max(40, (WIDTH - g.getFontMetrics().stringWidth(line)) / 2);
+            g.drawString(line, x, y);
+            y += 42;
         }
         g.dispose();
-        return image;
+        return frame;
+    }
+
+    private static BufferedImage cover(BufferedImage source) {
+        double scale = Math.max(WIDTH / (double) source.getWidth(), HEIGHT / (double) source.getHeight());
+        int w = Math.max(WIDTH, (int) Math.round(source.getWidth() * scale));
+        int h = Math.max(HEIGHT, (int) Math.round(source.getHeight() * scale));
+        BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(source, 0, 0, w, h, null);
+        g.dispose();
+        int x = Math.max(0, (w - WIDTH) / 2);
+        int y = Math.max(0, (h - HEIGHT) / 2);
+        BufferedImage crop = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+        Graphics2D out = crop.createGraphics();
+        out.drawImage(scaled, 0, 0, WIDTH, HEIGHT, x, y, x + WIDTH, y + HEIGHT, null);
+        out.dispose();
+        return crop;
     }
 
     private static int drawBlock(Graphics2D g, String text, int x, int y, int maxWidth, int lineHeight) {
@@ -248,7 +281,7 @@ public class ScenarioVideoRenderer {
         }
     }
 
-    private record Card(String kicker, String title, String body, String footer, double seconds) {
+    private record Card(String scene, String overlay, double seconds) {
     }
 
     public record RenderedClip(Path file, double durationSec, Path workDir) {
