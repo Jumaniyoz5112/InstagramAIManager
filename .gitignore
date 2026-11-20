@@ -34,6 +34,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Local tools (ffmpeg binary)
+BE/tools/
+
 # Media / local storage uploads
 storage/**
 !storage/.gitkeep

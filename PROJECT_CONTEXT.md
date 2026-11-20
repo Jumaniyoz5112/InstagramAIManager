@@ -68,6 +68,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - **Phase-2 Insights:** engagement score `likes+3×comments+2×shares+2×saves`; corpus = topN + lowN + ANALYZED mid; **bitta post kloni emas**
 - API: `GET/POST /api/v1/instagram/insights/*` (leaderboard, generate, latest, scenarios)
 - UI: Instagram — postlar. Chuqur tahlil Senari sahifasida: tab **Chuqur tahlil | Senari**. Chapda saqlangan ssenariylar, o‘ngda hisob almashtirish. `GET /insights/scenarios?accountId` (ruxsat INSTAGRAM)
+- Demo video: tayyor ssenariya kadrlaridan FFmpeg 9:16 MP4. `POST /insights/scenarios/{id}/video` faylni storage ga yozadi (`content_scenario_videos`, Liquibase 009). `FFMPEG_PATH` yoki `BE/tools/ffmpeg/ffmpeg.exe`
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
 - Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, insights **`qwen2.5:7b`** (RTX 4060 8GB). Ssenariya: Groq Free `qwen/qwen3.8-27b`, kalit `ai-service/.env` (gitignored). `reasoning_effort=none`, JSON. Limit: 30/daq, 1 000/kun, 8K token/daq, 200K token/kun

@@ -60,6 +60,8 @@ public final class MessageKeys {
     public static final String INSIGHTS_FAILED = "error.insights.failed";
     public static final String SCENARIO_NOT_FOUND = "error.scenario.not_found";
     public static final String SCENARIO_FAILED = "error.scenario.failed";
+    public static final String SCENARIO_VIDEO_NOT_FOUND = "error.scenario.video_not_found";
+    public static final String SCENARIO_VIDEO_FAILED = "error.scenario.video_failed";
 
     public static final String SECURITY_UNAUTHORIZED = "error.security.unauthorized";
     public static final String SECURITY_FORBIDDEN = "error.security.forbidden";

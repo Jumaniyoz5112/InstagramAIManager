@@ -279,15 +279,28 @@
                 <p class="text-sm text-white/80">{{ goal }}</p>
               }
             </div>
-            <button
-              type="button"
-              class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs"
-              [disabled]="!canCopyScenario()"
-              (click)="copyScenario()"
-            >
-              {{ copyingScenario() ? ('instagram.scenario_copying' | t) : ('instagram.scenario_copy' | t) }}
-            </button>
+            <div class="flex shrink-0 gap-2">
+              <button
+                type="button"
+                class="btn-primary !px-3 !py-1.5 text-xs"
+                [disabled]="renderingVideo()"
+                (click)="renderVideo()"
+              >
+                {{ renderingVideo() ? ('instagram.scenario_video_working' | t) : ('instagram.scenario_video' | t) }}
+              </button>
+              <button
+                type="button"
+                class="btn-ghost !px-3 !py-1.5 text-xs"
+                [disabled]="!canCopyScenario()"
+                (click)="copyScenario()"
+              >
+                {{ copyingScenario() ? ('instagram.scenario_copying' | t) : ('instagram.scenario_copy' | t) }}
+              </button>
+            </div>
           </div>
+          @if (videoUrl(); as src) {
+            <video class="mt-3 w-full max-w-sm rounded-2xl bg-black" [src]="src" controls playsinline></video>
+          }
           <div class="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">
             @if (scenarioText('format'); as fmt) {
               <span>{{ fmt }}</span>

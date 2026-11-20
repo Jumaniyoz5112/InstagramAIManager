@@ -1,6 +1,9 @@
 package uzeduai.be.analysis.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +18,9 @@ import uzeduai.be.analysis.dto.GenerateScenarioRequest;
 import uzeduai.be.analysis.dto.InsightReportResponse;
 import uzeduai.be.analysis.dto.LeaderboardItemResponse;
 import uzeduai.be.analysis.dto.ScenarioResponse;
+import uzeduai.be.analysis.dto.ScenarioVideoResponse;
 import uzeduai.be.analysis.service.ContentInsightsService;
+import uzeduai.be.analysis.service.ScenarioVideoService;
 import uzeduai.be.common.response.ApiResponse;
 import uzeduai.be.security.user.CustomUserDetails;
 
@@ -27,10 +32,16 @@ import java.util.UUID;
 public class InsightsController {
 
     private final ContentInsightsService insightsService;
+    private final ScenarioVideoService videoService;
     private final AccessService accessService;
 
-    public InsightsController(ContentInsightsService insightsService, AccessService accessService) {
+    public InsightsController(
+            ContentInsightsService insightsService,
+            ScenarioVideoService videoService,
+            AccessService accessService
+    ) {
         this.insightsService = insightsService;
+        this.videoService = videoService;
         this.accessService = accessService;
     }
 
@@ -85,6 +96,41 @@ public class InsightsController {
                         principal
                 )
         ));
+    }
+
+    @PostMapping("/scenarios/{scenarioId}/video")
+    public ResponseEntity<ApiResponse<ScenarioVideoResponse>> renderVideo(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PathVariable UUID scenarioId
+    ) {
+        accessService.requirePage(principal, "INSTAGRAM");
+        return ResponseEntity.ok(ApiResponse.ok(videoService.render(scenarioId, principal)));
+    }
+
+    @GetMapping("/scenarios/{scenarioId}/video")
+    public ResponseEntity<ApiResponse<ScenarioVideoResponse>> latestVideo(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PathVariable UUID scenarioId
+    ) {
+        accessService.requirePage(principal, "INSTAGRAM");
+        return ResponseEntity.ok(ApiResponse.ok(videoService.latest(scenarioId, principal)));
+    }
+
+    @GetMapping("/scenarios/{scenarioId}/video/file")
+    public ResponseEntity<InputStreamResource> videoFile(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PathVariable UUID scenarioId
+    ) {
+        accessService.requirePage(principal, "INSTAGRAM");
+        long size = videoService.fileSize(scenarioId, principal);
+        InputStreamResource body = videoService.openFile(scenarioId, principal);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=60")
+                .contentType(MediaType.parseMediaType("video/mp4"));
+        if (size >= 0) {
+            builder.contentLength(size);
+        }
+        return builder.body(body);
     }
 
     @GetMapping("/{reportId}/scenarios/latest")

@@ -155,6 +155,17 @@ export interface InsightReport {
   createdAt: string;
 }
 
+export interface ScenarioVideo {
+  id: string;
+  scenarioId: string;
+  status: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
+  contentType: string | null;
+  sizeBytes: number | null;
+  durationSec: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 export interface ContentScenario {
   id: string;
   insightReportId: string;
@@ -356,6 +367,29 @@ export class InstagramService {
         withCredentials: true
       })
       .pipe(map((res) => res.data));
+  }
+
+  renderScenarioVideo(scenarioId: string): Observable<ScenarioVideo> {
+    return this.http
+      .post<ApiResponse<ScenarioVideo>>(`${this.baseUrl}/insights/scenarios/${scenarioId}/video`, {}, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  latestScenarioVideo(scenarioId: string): Observable<ScenarioVideo> {
+    return this.http
+      .get<ApiResponse<ScenarioVideo>>(`${this.baseUrl}/insights/scenarios/${scenarioId}/video`, {
+        withCredentials: true
+      })
+      .pipe(map((res) => res.data));
+  }
+
+  scenarioVideoFile(scenarioId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/insights/scenarios/${scenarioId}/video/file`, {
+      responseType: 'blob',
+      withCredentials: true
+    });
   }
 
   listScenarios(accountId: string): Observable<ContentScenario[]> {

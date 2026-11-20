@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
@@ -32,7 +32,7 @@ import { AppIcon } from '../../shared/ui/icon';
     }
   `
 })
-export class InstagramScenarioPage implements OnInit {
+export class InstagramScenarioPage implements OnInit, OnDestroy {
   private readonly api = inject(InstagramService);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
@@ -57,6 +57,9 @@ export class InstagramScenarioPage implements OnInit {
   protected readonly generatingScenario = signal(false);
   protected readonly scenarioBrief = signal('');
   protected readonly copyingScenario = signal(false);
+  protected readonly renderingVideo = signal(false);
+  protected readonly videoUrl = signal<string | null>(null);
+  private videoObjectUrl: string | null = null;
 
   protected readonly selectedAccount = computed(() => {
     const id = this.selectedAccountId();
@@ -70,6 +73,10 @@ export class InstagramScenarioPage implements OnInit {
   protected readonly canCopyScenario = computed(
     () => this.scenario()?.status === 'READY' && !this.copyingScenario()
   );
+
+  ngOnDestroy(): void {
+    this.revokeVideo();
+  }
 
   ngOnInit(): void {
     const fromQuery = this.route.snapshot.queryParamMap.get('accountId');
@@ -363,6 +370,7 @@ export class InstagramScenarioPage implements OnInit {
     this.pageTab.set('scenario');
     this.scenarioTab.set('new');
     this.scenario.set(null);
+    this.clearVideo();
     this.error.set(null);
   }
 
@@ -372,6 +380,23 @@ export class InstagramScenarioPage implements OnInit {
     this.scenario.set(item);
     this.scenarioBrief.set(item.brief ?? '');
     this.error.set(null);
+    this.attachVideo(item.id);
+  }
+
+  protected renderVideo(): void {
+    const current = this.scenario();
+    if (!current || current.status !== 'READY' || this.renderingVideo()) {
+      return;
+    }
+    this.renderingVideo.set(true);
+    this.error.set(null);
+    this.api.renderScenarioVideo(current.id).subscribe({
+      next: () => this.attachVideo(current.id, true),
+      error: (err: unknown) => {
+        this.renderingVideo.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.scenario_video_failed'));
+      }
+    });
   }
 
   protected savedTitle(item: ContentScenario): string {
@@ -401,6 +426,11 @@ export class InstagramScenarioPage implements OnInit {
         const pick = forReport ?? items[0] ?? null;
         this.scenario.set(pick);
         this.scenarioTab.set(pick?.id ?? 'new');
+        if (pick) {
+          this.attachVideo(pick.id);
+        } else {
+          this.clearVideo();
+        }
       },
       error: () => {
         this.savedScenarios.set([]);
@@ -418,6 +448,42 @@ export class InstagramScenarioPage implements OnInit {
         }
       }
     });
+  }
+
+  private attachVideo(scenarioId: string, announce = false): void {
+    this.api.scenarioVideoFile(scenarioId).subscribe({
+      next: (blob) => {
+        if (!blob || blob.size < 32 || blob.type.includes('json')) {
+          this.clearVideo();
+          this.renderingVideo.set(false);
+          return;
+        }
+        this.revokeVideo();
+        const url = URL.createObjectURL(blob);
+        this.videoObjectUrl = url;
+        this.videoUrl.set(url);
+        this.renderingVideo.set(false);
+        if (announce) {
+          this.notice.set(this.i18n.t('instagram.scenario_video'));
+        }
+      },
+      error: () => {
+        this.clearVideo();
+        this.renderingVideo.set(false);
+      }
+    });
+  }
+
+  private clearVideo(): void {
+    this.revokeVideo();
+    this.videoUrl.set(null);
+  }
+
+  private revokeVideo(): void {
+    if (this.videoObjectUrl) {
+      URL.revokeObjectURL(this.videoObjectUrl);
+      this.videoObjectUrl = null;
+    }
   }
 
   private loadLeaderboard(accountId: string): void {
