@@ -2,7 +2,7 @@
 
 > Loyihaning asosiy texnik konteksti. Cursor va inson bir xil arxitektura bo‘yicha ishlashi shart.
 
-**Oxirgi yangilanish:** 2026-11-20  
+**Oxirgi yangilanish:** 2026-11-24  
 **Mahsulot turi:** Multi-Tenant SaaS  
 **Joriy bosqich:** Auth/H2/H1 + M0/M1 Instagram + Publishing — **DONE**; **Content AI analysis Phase-1** — **DONE**; **Corpus Insights + Next-post Scenario Phase-2** — **DONE** (text model `qwen2.5:7b` instruct; Liquibase 008)  
 **To‘xtatilgan:** Media Management CRUD (library edit/delete), Video Factory / multi-agent, Redis rewrite  
@@ -67,9 +67,11 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 - UI: kartada «Tahlilni ko‘rish» dialog — AI xulosa + tuzatish maydonlari
 - **Phase-2 Insights:** engagement score `likes+3×comments+2×shares+2×saves`; corpus = topN + lowN + ANALYZED mid; **bitta post kloni emas**
 - API: `GET/POST /api/v1/instagram/insights/*` (leaderboard, generate, latest, scenarios)
-- UI: Instagram — postlar. Chuqur tahlil Senari sahifasida: tab **Chuqur tahlil | Senari**. Chapda saqlangan ssenariylar, o‘ngda hisob almashtirish. `GET /insights/scenarios?accountId` (ruxsat INSTAGRAM)
+- UI Instagram: Akkauntlar `/app/instagram`, Media `/app/instagram/media` (nashr — «Post qo‘shish» dialog), Tahlil+Senari `/app/scenario` (tab **Chuqur tahlil | Senari**; chapda saqlangan ssenariylar)
+- Sahifalar: `INSTAGRAM`, `IG_MEDIA`, `IG_INSIGHTS` (`/app/scenario`). `IG_PUBLISH` va `IG_SCENARIO` `011` da o‘chirilgan. Tanlangan akkaunt `sessionStorage`
+- API gate: akkaunt ro‘yxati — oiladan istalgan sahifa; media/nashr `IG_MEDIA`; tahlil/ssenariya/video `IG_INSIGHTS`
 - Demo video: har kadr `visualUz` → rasm API (`image.pollinations.ai`, flux), pastida `overlayTextUz`, FFmpeg zoom. `POST /insights/scenarios/{id}/video` storage (`content_scenario_videos`). `FFMPEG_PATH` yoki `BE/tools/ffmpeg/ffmpeg.exe`
-- Ovoz sinovi: `/app/voice`. Standart `uz-mms` — Meta o‘zbek ovozi (tiniqroq). `uz-girl` yumshoqroq, xiraroq. Ikkalasi ham 16 kHz VITS, CPU. Ollama nutqida o‘zbekcha ovoz yo‘q
+- Ovoz sinovi: `/app/voice` (ruxsat `INSTAGRAM`). Standart `uz-mms` — Meta o‘zbek ovozi; `uz-girl` yumshoqroq. Ikkalasi 16 kHz VITS, CPU
 - Flags: `app.ai-service.enabled` (default true; test=false), `AI_SERVICE_URL`, `AI_MODEL_NAME`, `AI_TEXT_MODEL_NAME`
 - Liquibase: `007-content-analysis-engagement.sql`, `008-content-insights-scenarios.sql` (CREATE only)
 - Local: Ollama + `ai-service` Python **3.11** — vision `qwen2.5vl:7b`, insights **`qwen2.5:7b`** (RTX 4060 8GB). Ssenariya: Groq Free `qwen/qwen3.8-27b`, kalit `ai-service/.env` (gitignored). `reasoning_effort=none`, JSON. Limit: 30/daq, 1 000/kun, 8K token/daq, 200K token/kun
@@ -136,7 +138,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 
 ### Page Access
 
-- Katalog: `app_pages` (DASHBOARD, TENANTS, WORKSPACES, INSTAGRAM, ACCESS)
+- Katalog: `app_pages` (DASHBOARD, TENANTS, WORKSPACES, INSTAGRAM, IG_MEDIA, IG_INSIGHTS, ACCESS). `IG_PUBLISH` / `IG_SCENARIO` yozuvi bor, `enabled=false`
 - Grant: `user_page_access`
 - `PLATFORM_ADMIN` → barcha sahifalar avtomatik
 - Yangi register → faqat `DASHBOARD` (default)
@@ -167,6 +169,10 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 | `005-instagram-media-metrics-comments.sql` | `instagram_media_comments` CREATE only |
 | `006-instagram-publish.sql` | publish jobs/assets |
 | `007-content-analysis-engagement.sql` | analyses + results + engagement snapshots |
+| `008-content-insights-scenarios.sql` | insight reports + scenarios |
+| `009-content-scenario-videos.sql` | scenario demo video storage |
+| `010-instagram-nav-pages.sql` | `IG_MEDIA`, `IG_PUBLISH`, `IG_INSIGHTS`, `IG_SCENARIO` INSERT + INSTAGRAM grant nusxasi |
+| `011-merge-instagram-nav-pages.sql` | `IG_PUBLISH` va `IG_SCENARIO` enabled=false (navdan) |
 
 - **Test:** schema o‘zgarishi → CREATE / asosiy CREATE faylga qo‘shish; **`ALTER` yo‘q** — DB o‘chirib qayta yaratish
 - Rename: faqat fayl nomi; `logicalFilePath` + checksum saqlanadi — **003 ichiga INSTAGRAM qo‘shilmagan**
@@ -182,7 +188,7 @@ Ko‘p mijozli Instagram AI Manager SaaS. Umumiy BE/AI, ma’lumotlar `tenant_id
 ### UI
 
 - Auth memory token; logout faqat server success’dan keyin clear
-- Nav `pages` bo‘yicha; Routes: `/auth/*`, `/app/{dashboard,tenants,workspaces,instagram,access,pending}`
+- Nav `pages` bo‘yicha; Routes: `/auth/*`, `/app/{dashboard,tenants,workspaces,instagram,instagram/media,scenario,voice,access,pending}`
 - `pageGuard` + Access console
 
 ## 4. Keyingi (ruxsat bilan)
@@ -223,3 +229,4 @@ Batafsil kunlik jurnal: `.cursor/md/YYYY-MM-DD.md`
 | 2026-11-10 | Media filter/video + metrics/comments Liquibase 005 + sync/API/UI |
 | 2026-11-11 | Content AI Phase-1: Ollama vision + Liquibase 007 + engagement 2×/day |
 | 2026-11-11 | Meta OAuth Phase A discovery/pick; Insights+Scenario Phase-2 (008, text model) |
+| 2026-11-12 | Instagram navbar: akkaunt, media (nashr dialog), tahlil (ssenariya shu sahifada) |

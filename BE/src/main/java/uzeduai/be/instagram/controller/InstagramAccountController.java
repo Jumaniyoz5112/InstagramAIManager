@@ -41,7 +41,7 @@ public class InstagramAccountController {
     public ResponseEntity<ApiResponse<List<InstagramAccountResponse>>> list(
             @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requireAnyPage(principal, "INSTAGRAM", "IG_MEDIA", "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(accountService.listForActiveWorkspace(principal)));
     }
 

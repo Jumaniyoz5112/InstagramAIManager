@@ -1,13 +1,13 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal, untracked } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { InstagramSession } from '../../core/instagram/instagram-session';
 import {
   ContentScenario,
   InsightReport,
-  InstagramAccount,
   InstagramService,
   LeaderboardItem
 } from '../../core/services/instagram.service';
@@ -36,13 +36,14 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
   private readonly api = inject(InstagramService);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  protected readonly session = inject(InstagramSession);
 
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
-  protected readonly loadingAccounts = signal(false);
-  protected readonly accounts = signal<InstagramAccount[]>([]);
-  protected readonly selectedAccountId = signal<string | null>(null);
+  protected readonly accounts = this.session.accounts;
+  protected readonly loadingAccounts = this.session.loading;
+  protected readonly selectedAccountId = this.session.selectedAccountId;
+  protected readonly selectedAccount = this.session.selectedAccount;
 
   protected readonly insightReport = signal<InsightReport | null>(null);
   protected readonly loadingInsights = signal(false);
@@ -60,11 +61,7 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
   protected readonly renderingVideo = signal(false);
   protected readonly videoUrl = signal<string | null>(null);
   private videoObjectUrl: string | null = null;
-
-  protected readonly selectedAccount = computed(() => {
-    const id = this.selectedAccountId();
-    return this.accounts().find((a) => a.id === id) ?? null;
-  });
+  private watchedAccountId: string | null | undefined = undefined;
 
   protected readonly canGenerate = computed(
     () => !!this.insightReport() && this.insightReport()?.status === 'READY' && !this.generatingScenario()
@@ -74,6 +71,18 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
     () => this.scenario()?.status === 'READY' && !this.copyingScenario()
   );
 
+  constructor() {
+    effect(() => {
+      const ready = this.session.ready();
+      const accountId = this.session.selectedAccountId();
+      if (!ready || accountId === this.watchedAccountId) {
+        return;
+      }
+      this.watchedAccountId = accountId;
+      untracked(() => this.loadInsightsAndScenario());
+    });
+  }
+
   ngOnDestroy(): void {
     this.revokeVideo();
   }
@@ -81,9 +90,9 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const fromQuery = this.route.snapshot.queryParamMap.get('accountId');
     if (fromQuery) {
-      this.selectedAccountId.set(fromQuery);
+      this.session.select(fromQuery);
     }
-    this.loadAccounts();
+    this.session.load();
   }
 
   protected setPageTab(tab: 'insights' | 'scenario'): void {
@@ -97,13 +106,7 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
 
   protected selectAccount(accountId: string): void {
     this.accountMenuOpen.set(false);
-    this.selectedAccountId.set(accountId);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { accountId },
-      replaceUrl: true
-    });
-    this.loadInsightsAndScenario();
+    this.session.select(accountId);
   }
 
   protected scenarioBriefChange(event: Event): void {
@@ -337,33 +340,6 @@ export class InstagramScenarioPage implements OnInit, OnDestroy {
     if (!ok) {
       throw new Error('copy failed');
     }
-  }
-
-  private loadAccounts(): void {
-    this.loadingAccounts.set(true);
-    this.error.set(null);
-    this.api.listAccounts().subscribe({
-      next: (items) => {
-        this.accounts.set(items);
-        this.loadingAccounts.set(false);
-        const current = this.selectedAccountId();
-        const nextId =
-          current && items.some((a) => a.id === current) ? current : (items[0]?.id ?? null);
-        this.selectedAccountId.set(nextId);
-        if (nextId) {
-          void this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: { accountId: nextId },
-            replaceUrl: true
-          });
-          this.loadInsightsAndScenario();
-        }
-      },
-      error: (err: unknown) => {
-        this.loadingAccounts.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.load_failed'));
-      }
-    });
   }
 
   protected openNew(): void {

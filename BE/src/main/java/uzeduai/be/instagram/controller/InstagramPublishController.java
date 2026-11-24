@@ -41,7 +41,7 @@ public class InstagramPublishController {
             @RequestParam(required = false) String idempotencyKey,
             @RequestParam("files") List<MultipartFile> files
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(
                 publishService.publish(accountId, publishType, caption, idempotencyKey, files, principal)
         ));
@@ -52,7 +52,7 @@ public class InstagramPublishController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID jobId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(publishService.get(jobId, principal)));
     }
 
@@ -61,7 +61,7 @@ public class InstagramPublishController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam UUID accountId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(publishService.list(accountId, principal)));
     }
 }

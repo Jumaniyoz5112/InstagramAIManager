@@ -47,7 +47,7 @@ public class AnalysisController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @Valid @RequestBody MediaIdsRequest request
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(
                 contentAnalysisService.enqueueSelected(request.mediaIds(), principal)
         ));
@@ -58,7 +58,7 @@ public class AnalysisController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @Valid @RequestBody MediaIdsRequest request
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(
                 contentAnalysisService.skipSelected(request.mediaIds(), principal)
         ));
@@ -69,7 +69,7 @@ public class AnalysisController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID mediaId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(contentAnalysisService.getForMedia(mediaId, principal)));
     }
 
@@ -79,7 +79,7 @@ public class AnalysisController {
             @PathVariable UUID mediaId,
             @Valid @RequestBody AnalysisFeedbackRequest request
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(
                 contentAnalysisService.saveUserFeedback(mediaId, request, principal)
         ));
@@ -90,7 +90,7 @@ public class AnalysisController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID mediaId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(engagementSnapshotService.listForMedia(mediaId, principal)));
     }
 }

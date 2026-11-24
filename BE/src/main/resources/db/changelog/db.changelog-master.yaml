@@ -17,3 +17,7 @@ databaseChangeLog:
       file: db/changelog/changes/008-content-insights-scenarios.sql
   - include:
       file: db/changelog/changes/009-content-scenario-videos.sql
+  - include:
+      file: db/changelog/changes/010-instagram-nav-pages.sql
+  - include:
+      file: db/changelog/changes/011-merge-instagram-nav-pages.sql

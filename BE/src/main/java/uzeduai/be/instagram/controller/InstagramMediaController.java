@@ -39,7 +39,7 @@ public class InstagramMediaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(mediaService.list(principal, accountId, mediaType, page, size)));
     }
 
@@ -48,7 +48,7 @@ public class InstagramMediaController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID mediaId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(mediaService.get(mediaId, principal)));
     }
 
@@ -57,7 +57,7 @@ public class InstagramMediaController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID mediaId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_MEDIA");
         return ResponseEntity.ok(ApiResponse.ok(mediaService.listComments(mediaId, principal)));
     }
 }

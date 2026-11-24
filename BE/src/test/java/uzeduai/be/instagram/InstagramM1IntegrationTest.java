@@ -66,7 +66,12 @@ class InstagramM1IntegrationTest {
         assertThat(likeCountCol).isEqualTo(1);
         assertThat(analyses).isEqualTo(1);
         assertThat(snapshots).isEqualTo(1);
+        Integer scenarioPage = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM app_pages WHERE code IN ('IG_MEDIA', 'IG_PUBLISH', 'IG_INSIGHTS', 'IG_SCENARIO')",
+                Integer.class
+        );
         assertThat(page).isEqualTo(1);
+        assertThat(scenarioPage).isEqualTo(4);
     }
 
     @Test

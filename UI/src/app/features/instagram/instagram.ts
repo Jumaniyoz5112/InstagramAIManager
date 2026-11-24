@@ -1,24 +1,17 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { translateApiError } from '../../core/i18n/api-error';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { InstagramSession } from '../../core/instagram/instagram-session';
 import {
-  ContentAnalysis,
   InstagramAccount,
-  InstagramMedia,
-  InstagramMediaComment,
-  InstagramMediaType,
   InstagramService,
-  MediaAnalysisStatus,
-  OauthPickCandidate,
-  PublishType
+  OauthPickCandidate
 } from '../../core/services/instagram.service';
 import { AppIcon } from '../../shared/ui/icon';
-
-type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
 
 @Component({
   selector: 'app-instagram',
@@ -38,139 +31,106 @@ type MediaFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
         overflow: hidden;
       }
     }
-
-    @keyframes ig-analyze-spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    @keyframes ig-analyze-pulse {
-      0%,
-      100% {
-        opacity: 0.45;
-      }
-      50% {
-        opacity: 1;
-      }
-    }
-
-    .ig-analyze-spin {
-      animation: ig-analyze-spin 0.9s linear infinite;
-    }
-
-    .ig-analyze-pulse {
-      animation: ig-analyze-pulse 1.4s ease-in-out infinite;
-    }
   `
 })
-export class InstagramPage implements OnInit, OnDestroy {
+export class InstagramPage implements OnInit {
   private readonly api = inject(InstagramService);
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  protected readonly session = inject(InstagramSession);
   protected readonly auth = inject(AuthService);
 
-  protected readonly loadingAccounts = signal(false);
-  protected readonly loadingMedia = signal(false);
   protected readonly connecting = signal(false);
   protected readonly syncingId = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
-
-  protected readonly accounts = signal<InstagramAccount[]>([]);
-  protected readonly selectedAccountId = signal<string | null>(null);
-  protected readonly media = signal<InstagramMedia[]>([]);
-  protected readonly mediaPage = signal(0);
-  protected readonly mediaTotalPages = signal(0);
-  protected readonly mediaFilter = signal<MediaFilter>('ALL');
-  protected readonly selectedMedia = signal<InstagramMedia | null>(null);
-  protected readonly loadingDetail = signal(false);
-  protected readonly comments = signal<InstagramMediaComment[]>([]);
-  protected readonly loadingComments = signal(false);
-  protected readonly carouselIndex = signal(0);
-
-  protected readonly publishing = signal(false);
-  protected readonly publishType = signal<PublishType>('FEED_IMAGE');
-  protected readonly publishCaption = signal('');
-  protected readonly publishFiles = signal<File[]>([]);
-  protected readonly showPublish = signal(false);
-
-  protected readonly selectedForAnalysis = signal<Set<string>>(new Set());
-  protected readonly analysisActionBusy = signal(false);
-  protected readonly mediaAnalysis = signal<ContentAnalysis | null>(null);
-  protected readonly loadingAnalysis = signal(false);
-
-  protected readonly analysisDialogMedia = signal<InstagramMedia | null>(null);
-  protected readonly analysisDialogData = signal<ContentAnalysis | null>(null);
-  protected readonly loadingAnalysisDialog = signal(false);
-  protected readonly savingAnalysisFeedback = signal(false);
-  protected readonly feedbackSummary = signal('');
-  protected readonly feedbackNote = signal('');
-
   protected readonly oauthPickId = signal<string | null>(null);
   protected readonly oauthPickCandidates = signal<OauthPickCandidate[]>([]);
   protected readonly loadingOauthPick = signal(false);
   protected readonly confirmingOauthPick = signal(false);
 
-  private analysisPollTimer: ReturnType<typeof setInterval> | null = null;
-
-  protected readonly mediaFilters: MediaFilter[] = ['ALL', 'IMAGE', 'VIDEO', 'CAROUSEL_ALBUM'];
-  protected readonly publishTypes: PublishType[] = [
-    'FEED_IMAGE',
-    'REELS',
-    'STORY_IMAGE',
-    'STORY_VIDEO',
-    'CAROUSEL'
-  ];
-
-  protected readonly topLevelComments = computed(() =>
-    this.comments().filter((c) => !c.parentIgCommentId)
-  );
-
-  protected readonly selectedAccount = computed(() => {
-    const id = this.selectedAccountId();
-    return this.accounts().find((a) => a.id === id) ?? null;
-  });
-
-  protected readonly selectedCount = computed(() => this.selectedForAnalysis().size);
-
-  protected readonly analyzingCount = computed(
-    () =>
-      this.media().filter(
-        (m) => m.analysisStatus === 'QUEUED' || m.analysisStatus === 'RUNNING'
-      ).length
-  );
-
   ngOnInit(): void {
     const connected = this.route.snapshot.queryParamMap.get('connected');
     const igError = this.route.snapshot.queryParamMap.get('ig_error');
     const igPick = this.route.snapshot.queryParamMap.get('ig_pick');
-    if (connected) {
-      this.notice.set(this.i18n.t('instagram.connected'));
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: {},
-        replaceUrl: true
-      });
-    } else if (igPick) {
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: {},
-        replaceUrl: true
-      });
-      this.openOauthPick(igPick);
-    } else if (igError) {
-      const key = decodeURIComponent(igError);
-      const translated = this.i18n.t(key);
-      this.error.set(translated !== key ? translated : this.i18n.t('instagram.connect_failed'));
+    if (connected || igPick || igError) {
       void this.router.navigate([], {
         relativeTo: this.route,
         queryParams: {},
         replaceUrl: true
       });
     }
-    this.reload();
+    if (connected) {
+      this.notice.set(this.i18n.t('instagram.connected'));
+    } else if (igPick) {
+      this.openOauthPick(igPick);
+    } else if (igError) {
+      const key = decodeURIComponent(igError);
+      const translated = this.i18n.t(key);
+      this.error.set(translated !== key ? translated : this.i18n.t('instagram.connect_failed'));
+    }
+    this.session.load();
+  }
+
+  protected reload(): void {
+    this.session.load();
+  }
+
+  protected connect(): void {
+    if (!this.auth.currentUser()?.activeWorkspaceId) {
+      this.error.set(this.i18n.t('error.instagram.workspace_required'));
+      return;
+    }
+    this.connecting.set(true);
+    this.error.set(null);
+    this.api.startOauth().subscribe({
+      next: (res) => {
+        this.connecting.set(false);
+        window.location.href = res.authorizationUrl;
+      },
+      error: (err: unknown) => {
+        this.connecting.set(false);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.connect_failed'));
+      }
+    });
+  }
+
+  protected sync(accountId: string): void {
+    this.syncingId.set(accountId);
+    this.error.set(null);
+    this.notice.set(null);
+    this.api.syncAccount(accountId).subscribe({
+      next: () => {
+        this.syncingId.set(null);
+        this.notice.set(this.i18n.t('instagram.sync_started'));
+        this.session.load();
+      },
+      error: (err: unknown) => {
+        this.syncingId.set(null);
+        this.error.set(translateApiError(this.i18n, err, 'instagram.sync_failed'));
+      }
+    });
+  }
+
+  protected disconnect(accountId: string): void {
+    this.error.set(null);
+    this.api.disconnectAccount(accountId).subscribe({
+      next: () => {
+        this.notice.set(this.i18n.t('instagram.disconnected'));
+        if (this.session.selectedAccountId() === accountId) {
+          this.session.select(null);
+        }
+        this.session.load();
+      },
+      error: (err: unknown) => {
+        this.error.set(translateApiError(this.i18n, err, 'instagram.disconnect_failed'));
+      }
+    });
+  }
+
+  protected selectAccount(accountId: string): void {
+    this.session.select(accountId);
   }
 
   protected openOauthPick(pickId: string): void {
@@ -210,536 +170,14 @@ export class InstagramPage implements OnInit, OnDestroy {
         this.confirmingOauthPick.set(false);
         this.closeOauthPick();
         this.notice.set(this.i18n.t('instagram.connected'));
-        this.selectedAccountId.set(account.id);
-        this.loadAccounts();
+        this.session.select(account.id);
+        this.session.load();
       },
       error: (err: unknown) => {
         this.confirmingOauthPick.set(false);
         this.error.set(translateApiError(this.i18n, err, 'instagram.pick_confirm_failed'));
       }
     });
-  }
-
-  ngOnDestroy(): void {
-    this.stopAnalysisPoll();
-  }
-
-  protected reload(): void {
-    this.loadAccounts();
-  }
-
-  protected loadAccounts(): void {
-    this.loadingAccounts.set(true);
-    this.error.set(null);
-    this.api.listAccounts().subscribe({
-      next: (items) => {
-        this.accounts.set(items);
-        this.loadingAccounts.set(false);
-        const current = this.selectedAccountId();
-        const nextId =
-          current && items.some((a) => a.id === current)
-            ? current
-            : (items[0]?.id ?? null);
-        this.selectedAccountId.set(nextId);
-        this.loadMedia(0);
-      },
-      error: (err: unknown) => {
-        this.loadingAccounts.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.load_failed'));
-      }
-    });
-  }
-
-  protected selectAccount(accountId: string): void {
-    this.selectedAccountId.set(accountId);
-    this.selectedMedia.set(null);
-    this.clearAnalysisSelection();
-    this.loadMedia(0);
-  }
-
-  protected setMediaFilter(filter: MediaFilter): void {
-    if (this.mediaFilter() === filter) {
-      return;
-    }
-    this.mediaFilter.set(filter);
-    this.clearAnalysisSelection();
-    this.loadMedia(0);
-  }
-
-  protected loadMedia(page: number, opts?: { silent?: boolean }): void {
-    const accountId = this.selectedAccountId();
-    const filter = this.mediaFilter();
-    const mediaType: InstagramMediaType | null = filter === 'ALL' ? null : filter;
-    if (!opts?.silent) {
-      this.loadingMedia.set(true);
-    }
-    this.api.listMedia(accountId, page, 20, mediaType).subscribe({
-      next: (res) => {
-        this.media.set(res.content);
-        this.mediaPage.set(res.page);
-        this.mediaTotalPages.set(res.totalPages);
-        this.loadingMedia.set(false);
-        this.syncAnalysisPoll(res.content);
-        this.refreshOpenDetailAnalysis(res.content);
-      },
-      error: (err: unknown) => {
-        this.loadingMedia.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.media_load_failed'));
-      }
-    });
-  }
-
-  protected connect(): void {
-    if (!this.auth.currentUser()?.activeWorkspaceId) {
-      this.error.set(this.i18n.t('error.instagram.workspace_required'));
-      return;
-    }
-    this.connecting.set(true);
-    this.error.set(null);
-    this.api.startOauth().subscribe({
-      next: (res) => {
-        this.connecting.set(false);
-        window.location.href = res.authorizationUrl;
-      },
-      error: (err: unknown) => {
-        this.connecting.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.connect_failed'));
-      }
-    });
-  }
-
-  protected sync(accountId: string): void {
-    this.syncingId.set(accountId);
-    this.error.set(null);
-    this.notice.set(null);
-    this.api.syncAccount(accountId).subscribe({
-      next: () => {
-        this.syncingId.set(null);
-        this.notice.set(this.i18n.t('instagram.sync_started'));
-        this.loadAccounts();
-      },
-      error: (err: unknown) => {
-        this.syncingId.set(null);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.sync_failed'));
-      }
-    });
-  }
-
-  protected disconnect(accountId: string): void {
-    this.error.set(null);
-    this.api.disconnectAccount(accountId).subscribe({
-      next: () => {
-        this.notice.set(this.i18n.t('instagram.disconnected'));
-        if (this.selectedAccountId() === accountId) {
-          this.selectedAccountId.set(null);
-          this.selectedMedia.set(null);
-        }
-        this.loadAccounts();
-      },
-      error: (err: unknown) => {
-        this.error.set(translateApiError(this.i18n, err, 'instagram.disconnect_failed'));
-      }
-    });
-  }
-
-  protected openMedia(item: InstagramMedia): void {
-    this.loadingDetail.set(true);
-    this.loadingComments.set(true);
-    this.loadingAnalysis.set(true);
-    this.selectedMedia.set(item);
-    this.comments.set([]);
-    this.mediaAnalysis.set(null);
-    this.carouselIndex.set(0);
-    this.api.getMedia(item.id).subscribe({
-      next: (detail) => {
-        this.selectedMedia.set(detail);
-        this.loadingDetail.set(false);
-        this.loadAnalysisIfAny(detail);
-      },
-      error: (err: unknown) => {
-        this.loadingDetail.set(false);
-        this.loadingAnalysis.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.media_load_failed'));
-      }
-    });
-    this.api.listComments(item.id).subscribe({
-      next: (items) => {
-        this.comments.set(items);
-        this.loadingComments.set(false);
-      },
-      error: (err: unknown) => {
-        this.loadingComments.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.comments_load_failed'));
-      }
-    });
-  }
-
-  protected closeDetail(): void {
-    this.selectedMedia.set(null);
-    this.comments.set([]);
-    this.mediaAnalysis.set(null);
-    this.carouselIndex.set(0);
-  }
-
-  protected openAnalysisDialog(item: InstagramMedia, event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    if (item.analysisStatus !== 'ANALYZED' && item.analysisStatus !== 'FAILED') {
-      return;
-    }
-    this.analysisDialogMedia.set(item);
-    this.analysisDialogData.set(null);
-    this.feedbackSummary.set('');
-    this.feedbackNote.set('');
-    this.loadingAnalysisDialog.set(true);
-    this.api.getAnalysis(item.id).subscribe({
-      next: (analysis) => {
-        this.analysisDialogData.set(analysis);
-        this.feedbackSummary.set(String(analysis.result?.['correctedSummary'] ?? ''));
-        this.feedbackNote.set(String(analysis.result?.['userNote'] ?? ''));
-        this.loadingAnalysisDialog.set(false);
-      },
-      error: (err: unknown) => {
-        this.loadingAnalysisDialog.set(false);
-        this.closeAnalysisDialog();
-        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_failed'));
-      }
-    });
-  }
-
-  protected closeAnalysisDialog(): void {
-    this.analysisDialogMedia.set(null);
-    this.analysisDialogData.set(null);
-    this.loadingAnalysisDialog.set(false);
-    this.savingAnalysisFeedback.set(false);
-    this.feedbackSummary.set('');
-    this.feedbackNote.set('');
-  }
-
-  protected feedbackSummaryChange(event: Event): void {
-    this.feedbackSummary.set((event.target as HTMLTextAreaElement).value);
-  }
-
-  protected feedbackNoteChange(event: Event): void {
-    this.feedbackNote.set((event.target as HTMLTextAreaElement).value);
-  }
-
-  protected saveAnalysisFeedback(): void {
-    const media = this.analysisDialogMedia();
-    if (!media || media.analysisStatus !== 'ANALYZED') {
-      return;
-    }
-    this.savingAnalysisFeedback.set(true);
-    this.error.set(null);
-    this.api
-      .saveAnalysisFeedback(media.id, {
-        correctedSummary: this.feedbackSummary().trim() || null,
-        userNote: this.feedbackNote().trim() || null
-      })
-      .subscribe({
-        next: (analysis) => {
-          this.savingAnalysisFeedback.set(false);
-          this.analysisDialogData.set(analysis);
-          const summary =
-            this.analysisResultText(analysis) || media.analysisSummary || null;
-          this.media.update((list) =>
-            list.map((m) => (m.id === media.id ? { ...m, analysisSummary: summary } : m))
-          );
-          this.analysisDialogMedia.set({ ...media, analysisSummary: summary });
-          const open = this.selectedMedia();
-          if (open?.id === media.id) {
-            this.selectedMedia.set({ ...open, analysisSummary: summary });
-            this.mediaAnalysis.set(analysis);
-          }
-          this.notice.set(this.i18n.t('instagram.analysis_feedback_saved'));
-        },
-        error: (err: unknown) => {
-          this.savingAnalysisFeedback.set(false);
-          this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_feedback_failed'));
-        }
-      });
-  }
-
-  protected isSelectedForAnalysis(id: string): boolean {
-    return this.selectedForAnalysis().has(id);
-  }
-
-  protected toggleAnalysisSelect(item: InstagramMedia, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    const next = new Set(this.selectedForAnalysis());
-    if (next.has(item.id)) {
-      next.delete(item.id);
-    } else {
-      next.add(item.id);
-    }
-    this.selectedForAnalysis.set(next);
-  }
-
-  protected clearAnalysisSelection(): void {
-    this.selectedForAnalysis.set(new Set());
-  }
-
-  protected selectAllVisibleForAnalysis(): void {
-    const next = new Set(this.selectedForAnalysis());
-    for (const m of this.media()) {
-      if (m.analysisStatus === 'NOT_ANALYZED' || m.analysisStatus === 'FAILED') {
-        next.add(m.id);
-      }
-    }
-    this.selectedForAnalysis.set(next);
-  }
-
-  protected analyzeSelected(): void {
-    const ids = [...this.selectedForAnalysis()];
-    if (!ids.length) {
-      this.error.set(this.i18n.t('instagram.analysis_need_selection'));
-      return;
-    }
-    this.runAnalyze(ids);
-  }
-
-  protected skipSelected(): void {
-    const ids = [...this.selectedForAnalysis()];
-    if (!ids.length) {
-      this.error.set(this.i18n.t('instagram.analysis_need_selection'));
-      return;
-    }
-    this.runSkip(ids);
-  }
-
-  protected analyzeOne(item: InstagramMedia, event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.runAnalyze([item.id]);
-  }
-
-  protected skipOne(item: InstagramMedia, event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.runSkip([item.id]);
-  }
-
-  private runAnalyze(ids: string[]): void {
-    this.analysisActionBusy.set(true);
-    this.error.set(null);
-    this.notice.set(null);
-    this.api.analyzeMedia(ids).subscribe({
-      next: (res) => {
-        this.analysisActionBusy.set(false);
-        this.clearAnalysisSelection();
-        this.notice.set(this.i18n.t('instagram.analysis_queued', [res.queued]));
-        this.loadMedia(this.mediaPage(), { silent: true });
-      },
-      error: (err: unknown) => {
-        this.analysisActionBusy.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_failed'));
-      }
-    });
-  }
-
-  private runSkip(ids: string[]): void {
-    this.analysisActionBusy.set(true);
-    this.error.set(null);
-    this.notice.set(null);
-    this.api.skipAnalysis(ids).subscribe({
-      next: (res) => {
-        this.analysisActionBusy.set(false);
-        this.clearAnalysisSelection();
-        this.notice.set(this.i18n.t('instagram.analysis_skipped', [res.skipped]));
-        this.loadMedia(this.mediaPage(), { silent: true });
-      },
-      error: (err: unknown) => {
-        this.analysisActionBusy.set(false);
-        this.error.set(translateApiError(this.i18n, err, 'instagram.analysis_skip_failed'));
-      }
-    });
-  }
-
-  private loadAnalysisIfAny(detail: InstagramMedia): void {
-    if (
-      detail.analysisStatus !== 'ANALYZED' &&
-      detail.analysisStatus !== 'FAILED' &&
-      detail.analysisStatus !== 'QUEUED' &&
-      detail.analysisStatus !== 'RUNNING'
-    ) {
-      this.mediaAnalysis.set(null);
-      this.loadingAnalysis.set(false);
-      return;
-    }
-    this.loadingAnalysis.set(true);
-    this.api.getAnalysis(detail.id).subscribe({
-      next: (analysis) => {
-        this.mediaAnalysis.set(analysis);
-        this.loadingAnalysis.set(false);
-      },
-      error: () => {
-        this.mediaAnalysis.set(null);
-        this.loadingAnalysis.set(false);
-      }
-    });
-  }
-
-  private syncAnalysisPoll(items: InstagramMedia[]): void {
-    const busy = items.some(
-      (m) => m.analysisStatus === 'QUEUED' || m.analysisStatus === 'RUNNING'
-    );
-    if (busy) {
-      this.startAnalysisPoll();
-    } else {
-      this.stopAnalysisPoll();
-    }
-  }
-
-  private startAnalysisPoll(): void {
-    if (this.analysisPollTimer) {
-      return;
-    }
-    this.analysisPollTimer = setInterval(() => {
-      this.loadMedia(this.mediaPage(), { silent: true });
-    }, 3000);
-  }
-
-  private stopAnalysisPoll(): void {
-    if (this.analysisPollTimer) {
-      clearInterval(this.analysisPollTimer);
-      this.analysisPollTimer = null;
-    }
-  }
-
-  private refreshOpenDetailAnalysis(items: InstagramMedia[]): void {
-    const open = this.selectedMedia();
-    if (!open) {
-      return;
-    }
-    const updated = items.find((m) => m.id === open.id);
-    if (!updated) {
-      return;
-    }
-    if (updated.analysisStatus !== open.analysisStatus || updated.analysisSummary !== open.analysisSummary) {
-      this.selectedMedia.set({ ...open, ...updated });
-      this.loadAnalysisIfAny(updated);
-    }
-  }
-
-  protected analysisStatusKey(status: MediaAnalysisStatus | string): string {
-    return `instagram.analysis.status.${status}`;
-  }
-
-  protected analysisStatusTone(status: MediaAnalysisStatus | string): string {
-    switch (status) {
-      case 'ANALYZED':
-        return 'bg-accent-2/20 text-accent-2';
-      case 'QUEUED':
-      case 'RUNNING':
-        return 'bg-warn/20 text-warn';
-      case 'FAILED':
-        return 'bg-accent/20 text-accent';
-      case 'SKIPPED':
-        return 'bg-white/10 text-white/45';
-      default:
-        return 'bg-white/10 text-white/55';
-    }
-  }
-
-  protected isAnalyzing(status: MediaAnalysisStatus | string): boolean {
-    return status === 'QUEUED' || status === 'RUNNING';
-  }
-
-  protected analysisResultText(analysis: ContentAnalysis | null): string | null {
-    const result = analysis?.result;
-    if (!result) {
-      return null;
-    }
-    const summary = result['correctedSummary'] ?? result['summaryUz'] ?? result['mainTopic'];
-    return summary != null && String(summary).trim() ? String(summary) : null;
-  }
-
-  protected analysisAiSummary(analysis: ContentAnalysis | null): string | null {
-    const result = analysis?.result;
-    if (!result) {
-      return null;
-    }
-    const summary = result['summaryUz'] ?? result['mainTopic'];
-    return summary != null && String(summary).trim() ? String(summary) : null;
-  }
-
-  protected analysisList(analysis: ContentAnalysis | null, key: string): string[] {
-    const value = analysis?.result?.[key];
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value.map(String).map((s) => s.trim()).filter(Boolean);
-  }
-
-  protected analysisStyleText(analysis: ContentAnalysis | null): string | null {
-    const style = analysis?.result?.['visualStyle'];
-    if (!style || typeof style !== 'object') {
-      return this.analysisField(analysis, 'visualStyle');
-    }
-    const obj = style as Record<string, unknown>;
-    const parts = [obj['mood'], obj['composition'], Array.isArray(obj['colors']) ? obj['colors'].join(', ') : obj['colors']]
-      .map((v) => (v != null ? String(v).trim() : ''))
-      .filter(Boolean);
-    return parts.length ? parts.join(' · ') : null;
-  }
-
-  protected analysisField(analysis: ContentAnalysis | null, key: string): string | null {
-    const value = analysis?.result?.[key];
-    if (value == null || value === '') {
-      return null;
-    }
-    if (Array.isArray(value)) {
-      return value.map(String).join(', ');
-    }
-    return String(value);
-  }
-
-  protected previewUrl(item: InstagramMedia): string | null {
-    return item.thumbnailUrl || item.mediaUrl;
-  }
-
-  protected isVideo(type: InstagramMediaType | string | null | undefined): boolean {
-    return type === 'VIDEO' || type === 'REELS';
-  }
-
-  protected metricValue(value: number | null | undefined): string {
-    return value == null ? '—' : String(value);
-  }
-
-  protected filterLabelKey(filter: MediaFilter): string {
-    return `instagram.filter.${filter}`;
-  }
-
-  protected repliesFor(parent: InstagramMediaComment): InstagramMediaComment[] {
-    return this.comments().filter((c) => c.parentIgCommentId === parent.igCommentId);
-  }
-
-  protected carouselChild() {
-    const detail = this.selectedMedia();
-    const children = detail?.children ?? [];
-    if (!children.length) {
-      return null;
-    }
-    const idx = Math.min(Math.max(this.carouselIndex(), 0), children.length - 1);
-    return children[idx];
-  }
-
-  protected prevCarousel(): void {
-    const children = this.selectedMedia()?.children ?? [];
-    if (!children.length) {
-      return;
-    }
-    const next = this.carouselIndex() - 1;
-    this.carouselIndex.set(next < 0 ? children.length - 1 : next);
-  }
-
-  protected nextCarousel(): void {
-    const children = this.selectedMedia()?.children ?? [];
-    if (!children.length) {
-      return;
-    }
-    this.carouselIndex.set((this.carouselIndex() + 1) % children.length);
   }
 
   protected statusKey(status: string): string {
@@ -762,87 +200,5 @@ export class InstagramPage implements OnInit, OnDestroy {
   protected accountInitials(account: InstagramAccount): string {
     const raw = (account.username || account.igUserId || '?').trim();
     return raw.slice(0, 2).toUpperCase();
-  }
-
-  protected togglePublish(): void {
-    this.showPublish.update((v) => !v);
-  }
-
-  protected setPublishType(type: PublishType): void {
-    this.publishType.set(type);
-    this.publishFiles.set([]);
-  }
-
-  protected onPublishFilesSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const list = input.files ? Array.from(input.files) : [];
-    this.publishFiles.set(list);
-  }
-
-  protected publishCaptionChange(event: Event): void {
-    this.publishCaption.set((event.target as HTMLTextAreaElement).value);
-  }
-
-  protected publishAccept(): string {
-    switch (this.publishType()) {
-      case 'FEED_IMAGE':
-      case 'STORY_IMAGE':
-        return 'image/jpeg,.jpg,.jpeg';
-      case 'REELS':
-      case 'STORY_VIDEO':
-        return 'video/mp4,video/quicktime,.mp4,.mov';
-      case 'CAROUSEL':
-        return 'image/jpeg,.jpg,.jpeg,video/mp4,video/quicktime,.mp4,.mov';
-    }
-  }
-
-  protected publishMultiple(): boolean {
-    return this.publishType() === 'CAROUSEL';
-  }
-
-  protected submitPublish(): void {
-    const accountId = this.selectedAccountId();
-    if (!accountId) {
-      this.error.set(this.i18n.t('instagram.need_account'));
-      return;
-    }
-    const files = this.publishFiles();
-    if (!files.length) {
-      this.error.set(this.i18n.t('instagram.publish_need_files'));
-      return;
-    }
-    this.publishing.set(true);
-    this.error.set(null);
-    this.notice.set(null);
-    this.api
-      .publish({
-        accountId,
-        publishType: this.publishType(),
-        caption: this.publishCaption(),
-        files,
-        idempotencyKey: crypto.randomUUID()
-      })
-      .subscribe({
-        next: (job) => {
-          this.publishing.set(false);
-          if (job.status === 'PUBLISHED') {
-            this.notice.set(this.i18n.t('instagram.publish_ok'));
-            this.publishCaption.set('');
-            this.publishFiles.set([]);
-            this.showPublish.set(false);
-            this.sync(accountId);
-          } else {
-            this.error.set(job.errorMessage || this.i18n.t('instagram.publish_failed'));
-          }
-        },
-        error: (err: unknown) => {
-          this.publishing.set(false);
-          this.error.set(translateApiError(this.i18n, err, 'instagram.publish_failed'));
-        }
-      });
-  }
-
-  protected publishTypeKey(type: PublishType): string {
-    return `instagram.publish.type.${type}`;
   }
 }

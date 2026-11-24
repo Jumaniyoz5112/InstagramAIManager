@@ -75,6 +75,21 @@ public class AccessService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public void requireAnyPage(CustomUserDetails principal, String... pageCodes) {
+        User user = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, MessageKeys.AUTH_USER_NOT_FOUND));
+        Set<String> allowed = resolvePages(user).stream()
+                .map(PageAccessResponse::code)
+                .collect(Collectors.toSet());
+        for (String pageCode : pageCodes) {
+            if (allowed.contains(pageCode)) {
+                return;
+            }
+        }
+        throw new ApiException(HttpStatus.FORBIDDEN, MessageKeys.ACCESS_PAGE_FORBIDDEN);
+    }
+
     @Transactional
     public void grantDefaultPages(User user) {
         if (isPlatformAdmin(user)) {

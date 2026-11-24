@@ -51,7 +51,7 @@ public class InsightsController {
             @RequestParam UUID accountId,
             @RequestParam(defaultValue = "20") int limit
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(insightsService.leaderboard(accountId, limit, principal)));
     }
 
@@ -60,7 +60,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam UUID accountId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(insightsService.generateInsights(accountId, principal)));
     }
 
@@ -69,7 +69,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam UUID accountId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(insightsService.latestInsights(accountId, principal)));
     }
 
@@ -78,7 +78,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam UUID accountId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(insightsService.listScenarios(accountId, principal)));
     }
 
@@ -88,7 +88,7 @@ public class InsightsController {
             @PathVariable UUID reportId,
             @Valid @RequestBody(required = false) GenerateScenarioRequest request
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(
                 insightsService.generateScenario(
                         reportId,
@@ -103,7 +103,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID scenarioId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(videoService.render(scenarioId, principal)));
     }
 
@@ -112,7 +112,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID scenarioId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(videoService.latest(scenarioId, principal)));
     }
 
@@ -121,7 +121,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID scenarioId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         long size = videoService.fileSize(scenarioId, principal);
         InputStreamResource body = videoService.openFile(scenarioId, principal);
         ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
@@ -138,7 +138,7 @@ public class InsightsController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PathVariable UUID reportId
     ) {
-        accessService.requirePage(principal, "INSTAGRAM");
+        accessService.requirePage(principal, "IG_INSIGHTS");
         return ResponseEntity.ok(ApiResponse.ok(insightsService.latestScenario(reportId, principal)));
     }
 }

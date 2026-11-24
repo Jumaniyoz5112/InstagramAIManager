@@ -10,6 +10,9 @@ export type AppIconName =
   | 'plus'
   | 'check'
   | 'instagram'
+  | 'media'
+  | 'publish'
+  | 'insights'
   | 'scenario'
   | 'switch'
   | 'voice'
@@ -70,6 +73,22 @@ export type AppIconName =
           <rect x="3" y="3" width="18" height="18" rx="5" />
           <circle cx="12" cy="12" r="4" />
           <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        }
+        @case ('media') {
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <circle cx="9" cy="10" r="1.5" />
+          <path d="m21 15-4.5-4.5L7 19" />
+        }
+        @case ('publish') {
+          <path d="M12 19V5" />
+          <path d="m6 11 6-6 6 6" />
+          <path d="M5 21h14" />
+        }
+        @case ('insights') {
+          <path d="M4 19V10" />
+          <path d="M10 19V5" />
+          <path d="M16 19v-7" />
+          <path d="M22 19H2" />
         }
         @case ('scenario') {
           <path d="M8 4h8a2 2 0 0 1 2 2v14l-6-3-6 3V6a2 2 0 0 1 2-2z" />

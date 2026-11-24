@@ -70,8 +70,29 @@ export const routes: Routes = [
         loadComponent: () => import('./features/access/access').then((m) => m.AccessPage)
       },
       {
+        path: 'instagram/media',
+        canActivate: [pageGuard('IG_MEDIA')],
+        loadComponent: () =>
+          import('./features/instagram-media/instagram-media').then((m) => m.InstagramMediaPage)
+      },
+      {
+        path: 'instagram/publish',
+        redirectTo: 'instagram/media',
+        pathMatch: 'full'
+      },
+      {
+        path: 'instagram/insights',
+        redirectTo: '/app/scenario',
+        pathMatch: 'full'
+      },
+      {
+        path: 'instagram/scenario',
+        redirectTo: '/app/scenario',
+        pathMatch: 'full'
+      },
+      {
         path: 'scenario',
-        canActivate: [pageGuard('INSTAGRAM')],
+        canActivate: [pageGuard('IG_INSIGHTS')],
         loadComponent: () =>
           import('./features/instagram-scenario/instagram-scenario').then(
             (m) => m.InstagramScenarioPage
@@ -82,7 +103,6 @@ export const routes: Routes = [
         canActivate: [pageGuard('INSTAGRAM')],
         loadComponent: () => import('./features/voice/voice').then((m) => m.VoicePage)
       },
-      { path: 'instagram/scenario', redirectTo: '/app/scenario' },
       {
         path: 'instagram',
         canActivate: [pageGuard('INSTAGRAM')],

@@ -89,6 +89,12 @@ export class MainLayout {
         return 'page.ACCESS';
       case 'instagram':
         return 'page.INSTAGRAM';
+      case 'media':
+        return 'page.IG_MEDIA';
+      case 'publish':
+        return 'page.IG_PUBLISH';
+      case 'insights':
+        return 'page.IG_INSIGHTS';
       case 'scenario':
         return 'instagram.scenario_page_title';
       case 'voice':
@@ -150,6 +156,14 @@ export class MainLayout {
         return 'shield';
       case 'INSTAGRAM':
         return 'instagram';
+      case 'IG_MEDIA':
+        return 'media';
+      case 'IG_PUBLISH':
+        return 'publish';
+      case 'IG_INSIGHTS':
+        return 'insights';
+      case 'IG_SCENARIO':
+        return 'scenario';
       default:
         return 'dashboard';
     }
